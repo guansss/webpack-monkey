@@ -28,7 +28,7 @@
 
               source = source.replace(`var scriptUrl;`, `var scriptUrl = "${url}";`)
 
-              new Function(source)()
+              eval(source)
 
               resolve()
             } catch (e) {
