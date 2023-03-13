@@ -19,16 +19,12 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
     config.devServer ??= {}
     config.devServer.hot ??= "only"
 
-    // TODO: figure out the correct URL
-    // config.devServer.open ??= `http://127.0.0.1:${config.devServer.port || 3000}/monkey-dev.user.js`
-
     if (config.devServer.client !== false) {
       config.devServer.webSocketServer = "sockjs"
 
       config.devServer.client = isObject(config.devServer.client) ? config.devServer.client : {}
 
       config.devServer.client.webSocketTransport = "sockjs"
-      // config.devServer.client.webSocketURL = "ws://127.0.0.1:9526/ws"
       config.devServer.client.webSocketURL = {
         ...(isObject(config.devServer.client.webSocketURL)
           ? config.devServer.client.webSocketURL

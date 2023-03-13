@@ -183,73 +183,6 @@ export class MonkeyWebpackPlugin {
       name: undefined,
     }).apply(compiler)
 
-    // new EntryPlugin(compiler.context, require.resolve("../client/dev.user.ts"), {
-    //   name: "monkey-dev",
-    //   chunkLoading: false,
-    //   runtime: false,
-    // }).apply(compiler)
-
-    // new IgnorePlugin({
-    //   checkResource(resource, context) {
-    //     console.log(resource, context)
-    //     return false
-    //   },
-    // }).apply(compiler)
-
-    // new DefinePlugin({
-    //   __MK_INJECTION__: DefinePlugin.runtimeValue(() => {
-    //     let value: MonkeyInjection
-
-    //     console.log("----------------------replace")
-
-    //     if (isDev) {
-    //       value = {
-    //         userscripts: this.userscripts,
-    //       }
-    //     } else {
-    //       this.logger.warn("__MK_INJECTION__ should not be used in production.")
-    //       value = { userscripts: [] }
-    //     }
-
-    //     return JSON.stringify(value)
-    //   }),
-    // }).apply(compiler)
-
-    // compiler.hooks.make.tapAsync(this.constructor.name, async (compilation, cb) => {
-    //   const userscripts: UserscriptInfo[] = []
-
-    //   await Promise.all(
-    //     Array.from(compilation.entries).map(async ([name, { dependencies }]) => {
-    //       const entryFile = (dependencies[0] as EntryDependency)?.request
-
-    //       if (!entryFile) {
-    //         return
-    //       }
-
-    //       const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
-
-    //       if (!metaFile) {
-    //         return
-    //       }
-
-    //       const meta = await this.metaLoader({ file: metaFile }, this)
-
-    //       userscripts.push({
-    //         name,
-    //         entry: entryFile,
-    //         dir: path.dirname(entryFile),
-    //         meta,
-    //       })
-    //     })
-    //   )
-
-    //   console.log("----------------------userscripts", userscripts)
-
-    //   this.userscripts = userscripts
-
-    //   cb()
-    // })
-
     compiler.hooks.compilation.tap(
       this.constructor.name,
       (compilation, { normalModuleFactory }) => {
@@ -369,110 +302,11 @@ export class MonkeyWebpackPlugin {
           }
         )
 
-        // a: {
-        //   break a
-        //   let restoreAddChunk: (() => void) | undefined
-        //   let restoreGlobalEntry: (() => void) | undefined
-
-        //   compilation.hooks.beforeChunks.tap(this.constructor.name, () => {
-        //     overrideValue(compilation, "addChunk", (addChunk, restore) => {
-        //       restoreAddChunk = () => {
-        //         restoreAddChunk = undefined
-        //         restore()
-        //       }
-
-        //       return function (this: Compilation, chunk) {
-        //         if (chunk === "monkey-dev") {
-        //           overrideValue(
-        //             compilation.globalEntry,
-        //             "dependencies",
-        //             (_, restoreDependencies) => {
-        //               overrideValue(
-        //                 compilation.globalEntry,
-        //                 "includeDependencies",
-        //                 (_, restoreIncludeDependencies) => {
-        //                   restoreGlobalEntry = () => {
-        //                     restoreGlobalEntry = undefined
-        //                     restoreDependencies()
-        //                     restoreIncludeDependencies()
-        //                   }
-        //                   return []
-        //                 }
-        //               )
-        //               return []
-        //             }
-        //           )
-        //         } else {
-        //           restoreGlobalEntry?.()
-        //         }
-
-        //         return addChunk.call(this, chunk)
-        //       }
-        //     })
-        //   })
-
-        //   compilation.hooks.afterChunks.tap(this.constructor.name, () => {
-        //     restoreAddChunk?.()
-        //     restoreGlobalEntry?.()
-        //   })
-        // }
-
-        // if (0) {
-        //   compilation.hooks.processAssets.tap(
-        //     {
-        //       name: this.constructor.name,
-        //       stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE,
-        //     },
-        //     (assets) => {
-        //       const devEntry = compilation.entrypoints.get("monkey-dev")
-        //       const devJs = "monkey-dev.user.js"
-        //       const source = assets[devJs]
-
-        //       if (!source) {
-        //         return
-        //       }
-
-        //       const jsContentSource = traverseAndFindSource(source, (s) => {
-        //         const firstChild = ((s as any)._children as unknown[])?.[0]
-
-        //         if (firstChild && firstChild instanceof RawSource) {
-        //           const content = firstChild.source().toString("utf-8")
-
-        //           if (content.startsWith("/*!") && content.includes("dev.user.ts")) {
-        //             return true
-        //           }
-        //         }
-        //       })
-
-        //       if (jsContentSource) {
-        //         compilation.updateAsset(devJs, jsContentSource)
-        //       }
-        //     }
-        //   )
-        // }
-
         compiler.hooks.emit.tap(this.constructor.name, (chunks) => {
           debugger
         })
 
         if (!isDev) {
-          // compilation.hooks.additionalTreeRuntimeRequirements.tap(
-          //   {
-          //     name: this.constructor.name,
-          //     stage: 10000,
-          //   },
-          //   (chunk, requirements) => {
-          //     if (chunk.name === "monkey-dev") {
-          //       console.log(
-          //         "------------------------clear",
-          //         requirements.size,
-          //         "------------------------"
-          //       )
-          //       requirements.clear()
-          //     }
-          //   }
-          // )
-
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,
