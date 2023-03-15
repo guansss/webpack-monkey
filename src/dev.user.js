@@ -12,7 +12,9 @@
     loadScript: (url) => {
       return new Promise((resolve, reject) => {
         const fail = () => {
-          reject(new Error("failed to load client script, please check if the server is running."))
+          reject(
+            new Error(`failed to load script (${url}), please check if the server is running.`)
+          )
         }
 
         GM_xmlhttpRequest({
@@ -21,14 +23,10 @@
           onload: (res) => {
             try {
               if (res.status === 404) {
-                throw new Error(`Client script not found (${res.status}).`)
+                throw new Error(`Script not found (${url}).`)
               }
 
-              let source = res.responseText
-
-              source = source.replace(`var scriptUrl;`, `var scriptUrl = "${url}";`)
-
-              eval(source)
+              eval(res.responseText)
 
               resolve()
             } catch (e) {

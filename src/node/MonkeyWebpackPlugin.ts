@@ -4,11 +4,22 @@ import ConcatenatedModule from "webpack/lib/optimize/ConcatenatedModule"
 import { access, readFile } from "fs/promises"
 import { castArray, compact, isObject, isString } from "lodash"
 import path from "path"
-import { Chunk, Compilation, Compiler, EntryPlugin, ExternalModule, sources } from "webpack"
+import { Writable } from "type-fest"
+import {
+  Chunk,
+  Compilation,
+  Compiler,
+  EntryPlugin,
+  ExternalModule,
+  RuntimeModule,
+  sources,
+} from "webpack"
 import { getGMAPIs } from "../shared/GM"
 import { UserscriptMeta } from "../shared/meta"
-import { UserscriptInfo } from "../types/userscript"
+import { overrideValue } from "../shared/patching"
+import { UserscriptInfo, VAR_MK_DEV_INJECTION, VAR_MK_INJECTION } from "../types/userscript"
 import { MaybePromise } from "../types/utils"
+import { colorize } from "./color"
 import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
 
 const { RawSource, ConcatSource } = sources
@@ -162,6 +173,9 @@ export class MonkeyWebpackPlugin {
   userscripts: UserscriptInfo[] = []
   userscriptFinished = Promise.resolve()
 
+  receivePort: Promise<number>
+  readonly setPort!: (port: number) => void
+
   // assume that we won't call it before ready
   logger!: WebpackLogger
 
@@ -170,6 +184,28 @@ export class MonkeyWebpackPlugin {
     this.requireResolver = createRequireResolver(options)
     this.metaResolver = createMetaResolver(options)
     this.metaLoader = createMetaLoader(options)
+
+    this.receivePort = new Promise((resolve) => {
+      let resolved = false
+
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          this.logger.warn("Port not received after 10 seconds, assuming 8080.")
+          resolve(8080)
+        }
+      }, 1000 * 10)
+
+      ;(this as Writable<this>).setPort = (port) => {
+        if (resolved) {
+          this.logger.warn("setPort() called multiple times, ignoring.")
+          return
+        }
+
+        resolved = true
+        clearTimeout(timer)
+        resolve(port)
+      }
+    })
   }
 
   apply(compiler: Compiler) {
@@ -188,8 +224,17 @@ export class MonkeyWebpackPlugin {
       (compilation, { normalModuleFactory }) => {
         this.logger = compilation.getLogger(this.constructor.name)
 
-        // TODO: find a solid way to get the server's origin
-        const origin = `http://127.0.0.1:${compiler.options.devServer?.port || 3000}`
+        const getOrigin = () =>
+          this.receivePort.then(
+            (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
+          )
+
+        const getAssetUrl = async (asset: string) =>
+          getOrigin().then((origin) => `${origin}/${asset}`)
+
+        getAssetUrl("monkey-dev.user.js").then((url) => {
+          this.logger.info(`[webpack-monkey] dev userscript: ${colorize("cyan", url)}`)
+        })
 
         const projectPackageJson = getPackageJson(
           compilation.inputFileSystem,
@@ -231,7 +276,7 @@ export class MonkeyWebpackPlugin {
               name,
               entry: entryFile,
               dir: path.dirname(entryFile),
-              url: `${origin}/${name}.user.js`,
+              url: await getAssetUrl(`${name}.user.js`),
               meta,
             }
 
@@ -247,6 +292,30 @@ export class MonkeyWebpackPlugin {
           this.userscriptFinished = this.userscriptFinished.then(() => promise)
         })
 
+        compilation.hooks.runtimeModule.tap(this.constructor.name, (module) => {
+          if (module.name === "publicPath") {
+            overrideValue(module, "generate", (generate) => {
+              return function (this: RuntimeModule, ...args) {
+                let content = generate.call(this, ...args)
+
+                content = content.replace(
+                  "var scriptUrl;",
+                  [
+                    `var scriptUrl = ${VAR_MK_DEV_INJECTION}.clientScript;`,
+                    `if (!scriptUrl) {`,
+                    `  throw new Error("[monkey-dev] clientScript is not set");`,
+                    `}`,
+                  ].join("\n")
+                )
+
+                return content
+              }
+            })
+          }
+
+          return module
+        })
+
         compilation.hooks.processAssets.tapPromise(
           {
             name: this.constructor.name,
@@ -258,7 +327,7 @@ export class MonkeyWebpackPlugin {
             for (const [file, source] of Object.entries(compilation.assets)) {
               if (file.endsWith(".js")) {
                 const newSource = new ConcatSource(
-                  `window.__MK_INJECTION__ = ${JSON.stringify({
+                  `window.${VAR_MK_INJECTION} = ${JSON.stringify({
                     userscripts: this.userscripts,
                   })};`,
                   "\n\n",
@@ -274,10 +343,10 @@ export class MonkeyWebpackPlugin {
             let content = await readFile(path.resolve(__dirname, "../dev.user.js"), "utf-8")
 
             content =
-              `window.__MK_DEV_INJECTION__ = ${JSON.stringify({
+              `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify({
                 // TODO: reliable filename
-                clientScript: `${origin}/monkey-client.user.js`,
-                runtimeScript: `${origin}/runtime.user.js`,
+                clientScript: await getAssetUrl("monkey-client.user.js"),
+                runtimeScript: await getAssetUrl("runtime.user.js"),
               })};` +
               "\n\n" +
               content
@@ -286,6 +355,7 @@ export class MonkeyWebpackPlugin {
               generateMetaBlock(getGMAPIs().join("\n"), {
                 name: "Monkey Dev",
                 version: "1.0.0",
+                // TODO: change to *://*/*
                 match: ["*://127.0.0.1/*", "*://localhost/*"],
                 connect: "*",
               }) +

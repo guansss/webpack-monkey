@@ -7,10 +7,12 @@ interface MonkeyWebpackOptions extends MonkeyWebpackPluginOptions, MonkeyWebpack
 
 export function monkeyWebpack(options?: MonkeyWebpackOptions) {
   return (config: Configuration) => {
+    const plugin = new MonkeyWebpackPlugin(options)
+
     config ??= {}
 
     config.plugins ??= []
-    config.plugins.push(new MonkeyWebpackPlugin(options))
+    config.plugins.push(plugin)
 
     config.optimization ??= {}
     config.optimization.minimizer ??= []
@@ -18,6 +20,20 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
 
     config.devServer ??= {}
     config.devServer.hot ??= "only"
+
+    if (isFinite(Number(config.devServer.port))) {
+      plugin.setPort(Number(config.devServer.port))
+    } else {
+      const onListening = config.devServer.onListening
+
+      config.devServer.onListening = (server) => {
+        const { port } = server.server!.address() as import("net").AddressInfo
+
+        plugin.setPort(port)
+
+        onListening?.(server)
+      }
+    }
 
     if (config.devServer.client !== false) {
       config.devServer.webSocketServer = "sockjs"
@@ -30,8 +46,11 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
           ? config.devServer.client.webSocketURL
           : null),
         port: config.devServer.port,
-        hostname: "127.0.0.1",
         protocol: "ws",
+
+        // TODO: SockJS will throw if the hostname is not a loopback address,
+        // maybe we can patch it to allow other hostnames e.g. "localhost"
+        hostname: "127.0.0.1",
       }
     }
 

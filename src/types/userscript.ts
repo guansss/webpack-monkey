@@ -11,3 +11,11 @@ export interface UserscriptInfo {
 export interface MonkeyInjection {
   userscripts: UserscriptInfo[]
 }
+
+export interface MonkeyDevInjection {
+  clientScript: string
+  runtimeScript: string
+}
+
+export const VAR_MK_INJECTION = "__MK_INJECTION__"
+export const VAR_MK_DEV_INJECTION = "__MK_DEV_INJECTION__"
