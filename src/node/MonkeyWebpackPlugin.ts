@@ -46,6 +46,7 @@ type WebpackLogger = Compilation["logger"]
 type EntryDependency = ReturnType<(typeof EntryPlugin)["createDependency"]>
 
 export interface MonkeyWebpackPluginOptions {
+  serve?: boolean
   require?:
     | CdnProvider
     | RequireResolver
@@ -209,32 +210,36 @@ export class MonkeyWebpackPlugin {
   }
 
   apply(compiler: Compiler) {
-    const isDev = compiler.options.mode !== "production"
+    const isBuild = !compiler.options.mode || compiler.options.mode === "production"
 
-    new EntryPlugin(compiler.context, require.resolve("../client/client.ts"), {
-      name: "monkey-client",
-    }).apply(compiler)
+    const isServing = !!(
+      process.env
+        .WEBPACK_SERVE /* a TODO in webpack-dev-server says this will change in next major release, I'm not sure what it will be */ ||
+      this.options.serve
+    )
 
-    new EntryPlugin(compiler.context, require.resolve("../client/patches.ts"), {
-      name: undefined,
-    }).apply(compiler)
+    if (isServing) {
+      new EntryPlugin(compiler.context, require.resolve("../client/client.ts"), {
+        name: "monkey-client",
+      }).apply(compiler)
+
+      new EntryPlugin(compiler.context, require.resolve("../client/patches.ts"), {
+        name: undefined,
+      }).apply(compiler)
+    }
 
     compiler.hooks.compilation.tap(
       this.constructor.name,
       (compilation, { normalModuleFactory }) => {
         this.logger = compilation.getLogger(this.constructor.name)
 
-        const getOrigin = () =>
-          this.receivePort.then(
-            (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
+        if (!isServing && !isBuild && this.options.serve === undefined) {
+          this.logger.warn(
+            "Not in build or serve mode, this plugin will do nothing. If this is not intended, set `serve: true` in the plugin options to explicitly enable serve mode, otherwise, set `serve: false` to suppress this warning."
           )
 
-        const getAssetUrl = async (asset: string) =>
-          getOrigin().then((origin) => `${origin}/${asset}`)
-
-        getAssetUrl("monkey-dev.user.js").then((url) => {
-          this.logger.info(`[webpack-monkey] dev userscript: ${colorize("cyan", url)}`)
-        })
+          return
+        }
 
         const projectPackageJson = getPackageJson(
           compilation.inputFileSystem,
@@ -251,132 +256,142 @@ export class MonkeyWebpackPlugin {
           return jsFiles[0]
         }
 
-        compilation.hooks.succeedEntry.tap(this.constructor.name, (dependency, { name }) => {
-          if (!name) {
-            // do not process global entries
-            return
-          }
+        if (isServing) {
+          const getOrigin = () =>
+            this.receivePort.then(
+              (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
+            )
 
-          const entryFile = (dependency as EntryDependency)?.request
+          const getAssetUrl = async (asset: string) =>
+            getOrigin().then((origin) => `${origin}/${asset}`)
 
-          if (!entryFile) {
-            return
-          }
+          getAssetUrl("monkey-dev.user.js").then((url) => {
+            this.logger.info(`[webpack-monkey] dev userscript: ${colorize("cyan", url)}`)
+          })
 
-          const promise = (async () => {
-            const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
-
-            if (!metaFile) {
+          compilation.hooks.succeedEntry.tap(this.constructor.name, (dependency, { name }) => {
+            if (!name) {
+              // do not process global entries
               return
             }
 
-            const meta = await this.metaLoader({ file: metaFile }, this)
+            const entryFile = (dependency as EntryDependency)?.request
 
-            const userscript: UserscriptInfo = {
-              name,
-              entry: entryFile,
-              dir: path.dirname(entryFile),
-              url: await getAssetUrl(`${name}.user.js`),
-              meta,
+            if (!entryFile) {
+              return
             }
 
-            const existing = this.userscripts.find((u) => u.name === name)
+            const promise = (async () => {
+              const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
 
-            if (existing) {
-              Object.assign(existing, userscript)
-            } else {
-              this.userscripts.push(userscript)
-            }
-          })()
-
-          this.userscriptFinished = this.userscriptFinished.then(() => promise)
-        })
-
-        compilation.hooks.runtimeModule.tap(this.constructor.name, (module) => {
-          if (module.name === "publicPath") {
-            overrideValue(module, "generate", (generate) => {
-              return function (this: RuntimeModule, ...args) {
-                let content = generate.call(this, ...args)
-
-                content = content.replace(
-                  "var scriptUrl;",
-                  [
-                    `var scriptUrl = ${VAR_MK_DEV_INJECTION}.clientScript;`,
-                    `if (!scriptUrl) {`,
-                    `  throw new Error("[monkey-dev] clientScript is not set");`,
-                    `}`,
-                  ].join("\n")
-                )
-
-                return content
+              if (!metaFile) {
+                return
               }
-            })
-          }
 
-          return module
-        })
+              const meta = await this.metaLoader({ file: metaFile }, this)
 
-        compilation.hooks.processAssets.tapPromise(
-          {
-            name: this.constructor.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
-          },
-          async () => {
-            await this.userscriptFinished
-
-            for (const [file, source] of Object.entries(compilation.assets)) {
-              if (file.endsWith(".js")) {
-                const newSource = new ConcatSource(
-                  `window.${VAR_MK_INJECTION} = ${JSON.stringify({
-                    userscripts: this.userscripts,
-                  })};`,
-                  "\n\n",
-                  source
-                )
-
-                compilation.updateAsset(file, newSource)
+              const userscript: UserscriptInfo = {
+                name,
+                entry: entryFile,
+                dir: path.dirname(entryFile),
+                url: await getAssetUrl(`${name}.user.js`),
+                meta,
               }
+
+              const existing = this.userscripts.find((u) => u.name === name)
+
+              if (existing) {
+                Object.assign(existing, userscript)
+              } else {
+                this.userscripts.push(userscript)
+              }
+            })()
+
+            this.userscriptFinished = this.userscriptFinished.then(() => promise)
+          })
+
+          compilation.hooks.runtimeModule.tap(this.constructor.name, (module) => {
+            if (module.name === "publicPath") {
+              overrideValue(module, "generate", (generate) => {
+                return function (this: RuntimeModule, ...args) {
+                  let content = generate.call(this, ...args)
+
+                  content = content.replace(
+                    "var scriptUrl;",
+                    [
+                      `var scriptUrl = ${VAR_MK_DEV_INJECTION}.clientScript;`,
+                      `if (!scriptUrl) {`,
+                      `  throw new Error("[monkey-dev] clientScript is not set");`,
+                      `}`,
+                    ].join("\n")
+                  )
+
+                  return content
+                }
+              })
             }
 
-            const devJs = "monkey-dev.user.js"
+            return module
+          })
 
-            let content = await readFile(path.resolve(__dirname, "../dev.user.js"), "utf-8")
+          compilation.hooks.processAssets.tapPromise(
+            {
+              name: this.constructor.name,
+              stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            },
+            async () => {
+              await this.userscriptFinished
 
-            content =
-              `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify({
-                // TODO: reliable filename
-                clientScript: await getAssetUrl("monkey-client.user.js"),
-                runtimeScript: await getAssetUrl("runtime.user.js"),
-              })};` +
-              "\n\n" +
-              content
+              for (const [file, source] of Object.entries(compilation.assets)) {
+                if (file.endsWith(".js")) {
+                  const newSource = new ConcatSource(
+                    `window.${VAR_MK_INJECTION} = ${JSON.stringify({
+                      userscripts: this.userscripts,
+                    })};`,
+                    "\n\n",
+                    source
+                  )
 
-            content =
-              generateMetaBlock(getGMAPIs().join("\n"), {
-                name: "Monkey Dev",
-                version: "1.0.0",
-                // TODO: change to *://*/*
-                match: ["*://127.0.0.1/*", "*://localhost/*"],
-                connect: "*",
-              }) +
-              "\n\n" +
-              content
+                  compilation.updateAsset(file, newSource)
+                }
+              }
 
-            if (this.options.transformDevEntry) {
-              content = this.options.transformDevEntry(content)
+              const devJs = "monkey-dev.user.js"
+
+              let content = await readFile(path.resolve(__dirname, "../dev.user.js"), "utf-8")
+
+              content =
+                `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify({
+                  // TODO: reliable filename
+                  clientScript: await getAssetUrl("monkey-client.user.js"),
+                  runtimeScript: await getAssetUrl("runtime.user.js"),
+                })};` +
+                "\n\n" +
+                content
+
+              content =
+                generateMetaBlock(getGMAPIs().join("\n"), {
+                  name: "Monkey Dev",
+                  version: "1.0.0",
+                  // TODO: change to *://*/*
+                  match: ["*://127.0.0.1/*", "*://localhost/*"],
+                  connect: "*",
+                }) +
+                "\n\n" +
+                content
+
+              if (this.options.transformDevEntry) {
+                content = this.options.transformDevEntry(content)
+              }
+
+              const source = new RawSource(content)
+
+              compilation.emitAsset(devJs, source)
             }
+          )
+        }
 
-            const source = new RawSource(content)
-
-            compilation.emitAsset(devJs, source)
-          }
-        )
-
-        compiler.hooks.emit.tap(this.constructor.name, (chunks) => {
-          debugger
-        })
-
-        if (!isDev) {
+        if (!isBuild) {
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,

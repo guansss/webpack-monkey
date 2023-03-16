@@ -5,8 +5,8 @@ import postcssPresetEnv from "postcss-preset-env"
 import { DefinePlugin } from "webpack"
 import { monkeyWebpack } from "../src"
 
-export default (_env: unknown, { mode }: { mode: string }) => {
-  const isDev = mode !== "production"
+export default (env: Record<string, string | boolean>, { mode }: { mode: string }) => {
+  const isServing = !!env.WEBPACK_SERVE
 
   const entryFiles = globSync(["userscripts/*/index.ts", "userscripts/*/index.js"], {
     cwd: __dirname,
@@ -14,7 +14,7 @@ export default (_env: unknown, { mode }: { mode: string }) => {
   })
 
   return monkeyWebpack()({
-    mode: mode === "production" ? "production" : "development",
+    mode: isServing ? "development" : "production",
     entry: Object.fromEntries(
       entryFiles.map((entryFile) => [path.basename(path.dirname(entryFile)), entryFile])
     ),
@@ -22,14 +22,14 @@ export default (_env: unknown, { mode }: { mode: string }) => {
       new MiniCssExtractPlugin(),
       new DefinePlugin({
         BUILD_TIME: Date.now(),
-        DEV: isDev,
+        DEV: process.env.NODE_ENV === "development",
       }),
     ],
     devServer: {
       port: 9526,
     },
     externals: {
-      ...(!isDev && {
+      ...(!isServing && {
         jquery: "$",
       }),
     },

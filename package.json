@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "playground": "webpack server --config=./playground/webpack.config.ts"
+    "playground": "webpack serve --config=./playground/webpack.config.ts",
+    "playground:build": "webpack --config=./playground/webpack.config.ts"
   },
   "repository": {
     "type": "git",
