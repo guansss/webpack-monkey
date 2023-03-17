@@ -391,7 +391,7 @@ export class MonkeyWebpackPlugin {
           )
         }
 
-        if (!isBuild) {
+        if (isBuild) {
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,
