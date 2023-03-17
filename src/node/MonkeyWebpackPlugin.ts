@@ -2,7 +2,7 @@
 import ConcatenatedModule from "webpack/lib/optimize/ConcatenatedModule"
 
 import { access, readFile } from "fs/promises"
-import { castArray, compact, isObject, isString } from "lodash"
+import { castArray, compact, find, isObject, isString } from "lodash"
 import path from "path"
 import { Writable } from "type-fest"
 import {
@@ -14,10 +14,16 @@ import {
   RuntimeModule,
   sources,
 } from "webpack"
+import {
+  CLIENT_SCRIPT,
+  DEV_SCRIPT,
+  VAR_MK_DEV_INJECTION,
+  VAR_MK_INJECTION,
+} from "../shared/constants"
 import { getGMAPIs } from "../shared/GM"
 import { UserscriptMeta } from "../shared/meta"
 import { overrideValue } from "../shared/patching"
-import { UserscriptInfo, VAR_MK_DEV_INJECTION, VAR_MK_INJECTION } from "../types/userscript"
+import { MonkeyDevInjection, UserscriptInfo } from "../types/userscript"
 import { MaybePromise } from "../types/utils"
 import { colorize } from "./color"
 import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
@@ -171,7 +177,7 @@ export class MonkeyWebpackPlugin {
   metaResolver: MetaResolver
   metaLoader: MetaLoader
 
-  userscripts: UserscriptInfo[] = []
+  userscripts: Omit<UserscriptInfo, "url">[] = []
   userscriptFinished = Promise.resolve()
 
   receivePort: Promise<number>
@@ -221,6 +227,7 @@ export class MonkeyWebpackPlugin {
     if (isServing) {
       new EntryPlugin(compiler.context, require.resolve("../client/client.ts"), {
         name: "monkey-client",
+        filename: CLIENT_SCRIPT,
       }).apply(compiler)
 
       new EntryPlugin(compiler.context, require.resolve("../client/patches.ts"), {
@@ -249,7 +256,7 @@ export class MonkeyWebpackPlugin {
         function findOneOrNoneJsFile(chunk: Chunk) {
           const jsFiles = Array.from(chunk.files).filter((file) => file.endsWith(".js"))
 
-          if (jsFiles.length > 1) {
+          if (isBuild && jsFiles.length > 1) {
             throw new Error(`multiple js files in chunk ${chunk.name}:\n- ${jsFiles.join("\n- ")}`)
           }
 
@@ -265,7 +272,7 @@ export class MonkeyWebpackPlugin {
           const getAssetUrl = async (asset: string) =>
             getOrigin().then((origin) => `${origin}/${asset}`)
 
-          getAssetUrl("monkey-dev.user.js").then((url) => {
+          getAssetUrl(DEV_SCRIPT).then((url) => {
             this.logger.info(`[webpack-monkey] dev userscript: ${colorize("cyan", url)}`)
           })
 
@@ -290,11 +297,10 @@ export class MonkeyWebpackPlugin {
 
               const meta = await this.metaLoader({ file: metaFile }, this)
 
-              const userscript: UserscriptInfo = {
+              const userscript: Omit<UserscriptInfo, "url"> = {
                 name,
                 entry: entryFile,
                 dir: path.dirname(entryFile),
-                url: await getAssetUrl(`${name}.user.js`),
                 meta,
               }
 
@@ -339,35 +345,72 @@ export class MonkeyWebpackPlugin {
               name: this.constructor.name,
               stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
             },
-            async () => {
+            async (assets) => {
               await this.userscriptFinished
 
-              for (const [file, source] of Object.entries(compilation.assets)) {
-                if (file.endsWith(".js")) {
-                  const newSource = new ConcatSource(
-                    `window.${VAR_MK_INJECTION} = ${JSON.stringify({
-                      userscripts: this.userscripts,
-                    })};`,
-                    "\n\n",
-                    source
-                  )
+              const qualifiedUserscripts: UserscriptInfo[] = []
 
-                  compilation.updateAsset(file, newSource)
+              let runtimeScript: string | undefined
+
+              for (const [name, entrypoint] of compilation.entrypoints) {
+                if (!runtimeScript) {
+                  const runtimeChunk = find(entrypoint.chunks, { name: "runtime" })
+
+                  if (runtimeChunk) {
+                    runtimeScript = findOneOrNoneJsFile(runtimeChunk)
+                  }
+                }
+
+                const userscript = find(this.userscripts, { name })
+
+                if (!userscript) {
+                  continue
+                }
+
+                const chunk = find(entrypoint.chunks, { name })
+
+                if (!chunk) {
+                  this.logger.warn("Chunk not found for userscript:", name)
+                  continue
+                }
+
+                const file = findOneOrNoneJsFile(chunk)
+
+                if (file && assets[file]) {
+                  qualifiedUserscripts.push({
+                    ...userscript,
+                    url: await getAssetUrl(file),
+                  })
+                } else {
+                  this.logger.warn("URL not found for userscript:", name)
+                  continue
                 }
               }
 
-              const devJs = "monkey-dev.user.js"
+              if (!runtimeScript || !assets[runtimeScript]) {
+                throw new Error("runtime script not found")
+              }
+
+              const runtimeSource = assets[runtimeScript]!
+
+              const newRuntimeSource = new ConcatSource(
+                `window.${VAR_MK_INJECTION} = ${JSON.stringify({
+                  userscripts: qualifiedUserscripts,
+                })};\n\n`,
+                runtimeSource
+              )
+
+              compilation.updateAsset(runtimeScript, newRuntimeSource)
 
               let content = await readFile(path.resolve(__dirname, "../dev.user.js"), "utf-8")
 
+              const devInjection: MonkeyDevInjection = {
+                clientScript: await getAssetUrl(CLIENT_SCRIPT),
+                runtimeScript: await getAssetUrl(runtimeScript),
+              }
+
               content =
-                `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify({
-                  // TODO: reliable filename
-                  clientScript: await getAssetUrl("monkey-client.user.js"),
-                  runtimeScript: await getAssetUrl("runtime.user.js"),
-                })};` +
-                "\n\n" +
-                content
+                `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify(devInjection)};\n\n` + content
 
               content =
                 generateMetaBlock(getGMAPIs().join("\n"), {
@@ -386,7 +429,7 @@ export class MonkeyWebpackPlugin {
 
               const source = new RawSource(content)
 
-              compilation.emitAsset(devJs, source)
+              compilation.emitAsset(DEV_SCRIPT, source)
             }
           )
         }
