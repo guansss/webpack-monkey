@@ -111,7 +111,7 @@ function createRequireResolver({
       versionDef = `@${versionDef}`
     }
 
-    return `${baseUrl}/${name}${versionDef}`
+    return encodeURI(`${baseUrl}/${name}${versionDef}`)
   }
 }
 
