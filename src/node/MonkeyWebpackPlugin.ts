@@ -316,30 +316,6 @@ export class MonkeyWebpackPlugin {
             this.userscriptFinished = this.userscriptFinished.then(() => promise)
           })
 
-          compilation.hooks.runtimeModule.tap(this.constructor.name, (module) => {
-            if (module.name === "publicPath") {
-              overrideValue(module, "generate", (generate) => {
-                return function (this: RuntimeModule, ...args) {
-                  let content = generate.call(this, ...args)
-
-                  content = content.replace(
-                    "var scriptUrl;",
-                    [
-                      `var scriptUrl = ${VAR_MK_DEV_INJECTION}.clientScript;`,
-                      `if (!scriptUrl) {`,
-                      `  throw new Error("[monkey-dev] clientScript is not set");`,
-                      `}`,
-                    ].join("\n")
-                  )
-
-                  return content
-                }
-              })
-            }
-
-            return module
-          })
-
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,

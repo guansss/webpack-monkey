@@ -26,7 +26,17 @@
                 throw new Error(`Script not found (${url}).`)
               }
 
+              const fakeScript = document.createElement("script")
+              fakeScript.src = url
+
+              Object.defineProperty(document, "currentScript", {
+                get: () => fakeScript,
+                configurable: true,
+              })
+
               eval(res.responseText)
+
+              delete document.currentScript
 
               resolve()
             } catch (e) {
