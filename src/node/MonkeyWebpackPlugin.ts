@@ -2,7 +2,7 @@
 import ConcatenatedModule from "webpack/lib/optimize/ConcatenatedModule"
 
 import { access, readFile } from "fs/promises"
-import { castArray, compact, find, isObject, isString } from "lodash"
+import { castArray, compact, find, isObject, isString, without } from "lodash"
 import path from "path"
 import { Writable } from "type-fest"
 import {
@@ -11,7 +11,7 @@ import {
   Compiler,
   EntryPlugin,
   ExternalModule,
-  RuntimeModule,
+  NormalModule,
   sources,
 } from "webpack"
 import {
@@ -22,7 +22,6 @@ import {
 } from "../shared/constants"
 import { getGMAPIs } from "../shared/GM"
 import { UserscriptMeta } from "../shared/meta"
-import { overrideValue } from "../shared/patching"
 import { MonkeyDevInjection, UserscriptInfo } from "../types/userscript"
 import { MaybePromise } from "../types/utils"
 import { colorize } from "./color"
@@ -234,7 +233,20 @@ export class MonkeyWebpackPlugin {
         name: undefined,
       }).apply(compiler)
     }
-
+    compiler.resolverFactory.hooks.resolver.for("normal").tap("xxxxxxxxxx", (resolver) => {
+      // you can tap into resolver.hooks now
+      resolver.hooks.result.tap("MyPlugin", (result, ctx) => {
+        if (
+          // expects: "<project>/node_modules/mini-css-extract-plugin/dist/hmr/hotModuleReplacement.js"
+          result.path &&
+          result.path.includes("mini-css-extract-plugin") &&
+          result.path.includes("hotModuleReplacement.js")
+        ) {
+          result.path = path.resolve(__dirname, "hmr-css.js")
+        }
+        return result
+      })
+    })
     compiler.hooks.compilation.tap(
       this.constructor.name,
       (compilation, { normalModuleFactory }) => {
@@ -264,17 +276,56 @@ export class MonkeyWebpackPlugin {
         }
 
         if (isServing) {
-          const getOrigin = () =>
-            this.receivePort.then(
-              (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
-            )
+          const originReady = this.receivePort.then(
+            (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
+          )
 
-          const getAssetUrl = async (asset: string) =>
-            getOrigin().then((origin) => `${origin}/${asset}`)
+          let origin: string | undefined
 
-          getAssetUrl(DEV_SCRIPT).then((url) => {
+          originReady.then((o) => (origin = o))
+
+          const getAssetUrl = (asset: string) => {
+            if (!origin) {
+              throw new Error("origin not set")
+            }
+
+            return `${origin}/${asset}`
+          }
+
+          originReady.then(() => {
+            const url = getAssetUrl(DEV_SCRIPT)
             this.logger.info(`[webpack-monkey] dev userscript: ${colorize("cyan", url)}`)
           })
+
+          // normalModuleFactory.hooks.beforeResolve.tap(this.constructor.name, (data) => {
+          //   debugger
+          // })
+
+          // normalModuleFactory.hooks.resolve.tap(this.constructor.name, (data) => {
+          //   debugger
+          // })
+
+          // normalModuleFactory.hooks.afterResolve.tap(this.constructor.name, (data) => {
+          //   debugger
+          // })
+
+          // const hooks = NormalModule.getCompilationHooks(compilation)
+
+          // hooks.loader.tap(this.constructor.name, (c, module) => {
+          //   if (module.resource.includes("hello\\a.ts")) {
+          //     debugger
+          //   }
+          // })
+
+          // hooks.beforeParse.tap(this.constructor.name, (module) => {
+          //   if (
+          //     // expected: "<project>/node_modules/mini-css-extract-plugin/dist/hmr/hotModuleReplacement.js"
+          //     module.resource.includes("mini-css-extract-plugin") &&
+          //     module.resource.includes("hotModuleReplacement.js")
+          //   ) {
+          //     module._source
+          //   }
+          // })
 
           compilation.hooks.succeedEntry.tap(this.constructor.name, (dependency, { name }) => {
             if (!name) {
@@ -302,6 +353,7 @@ export class MonkeyWebpackPlugin {
                 entry: entryFile,
                 dir: path.dirname(entryFile),
                 meta,
+                assets: [],
               }
 
               const existing = this.userscripts.find((u) => u.name === name)
@@ -323,6 +375,9 @@ export class MonkeyWebpackPlugin {
             },
             async (assets) => {
               await this.userscriptFinished
+              await originReady
+
+              debugger
 
               const qualifiedUserscripts: UserscriptInfo[] = []
 
@@ -355,7 +410,8 @@ export class MonkeyWebpackPlugin {
                 if (file && assets[file]) {
                   qualifiedUserscripts.push({
                     ...userscript,
-                    url: await getAssetUrl(file),
+                    url: getAssetUrl(file),
+                    assets: without(Array.from(chunk.files), file).map(getAssetUrl),
                   })
                 } else {
                   this.logger.warn("URL not found for userscript:", name)
@@ -364,7 +420,8 @@ export class MonkeyWebpackPlugin {
               }
 
               if (!runtimeScript || !assets[runtimeScript]) {
-                throw new Error("runtime script not found")
+                this.logger.error("runtime script not found")
+                return
               }
 
               const runtimeSource = assets[runtimeScript]!
@@ -381,8 +438,8 @@ export class MonkeyWebpackPlugin {
               let content = await readFile(path.resolve(__dirname, "../dev.user.js"), "utf-8")
 
               const devInjection: MonkeyDevInjection = {
-                clientScript: await getAssetUrl(CLIENT_SCRIPT),
-                runtimeScript: await getAssetUrl(runtimeScript),
+                clientScript: getAssetUrl(CLIENT_SCRIPT),
+                runtimeScript: getAssetUrl(runtimeScript),
               }
 
               content =

@@ -26,7 +26,12 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
       }),
     ],
     devServer: {
-      port: 9526,
+      // port: 9526,
+      headers: {
+        "Content-Security-Policy":
+          "default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self';",
+        "X-Custom-Foo": "bar",
+      },
     },
     externals: {
       ...(!isServing && {
@@ -59,7 +64,8 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
         {
           test: /\.css$/i,
           use: [
-            MiniCssExtractPlugin.loader,
+            "style-loader",
+            // MiniCssExtractPlugin.loader,
             {
               loader: "css-loader",
               options: {

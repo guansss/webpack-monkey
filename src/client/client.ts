@@ -1,13 +1,14 @@
 import { compact } from "lodash"
 import { urlMatch } from "../shared/utils"
 import { MonkeyInjection, UserscriptInfo } from "../types/userscript"
-import { enableHMR } from "./hmr"
+import { hmrCss, loadCss } from "./css"
 import { log } from "./log"
 
-enableHMR(module)
+// enableHMR(module)
 
 interface MonkeyGlobal extends MonkeyInjection {
   loadScript: (url: string) => void
+  hmrCss: (moduleId: string, options: object) => () => void
 }
 
 declare global {
@@ -18,11 +19,14 @@ console.log("Monkey Client Loaded", __MK_INJECTION__)
 
 declare const __MK_INJECTION__: MonkeyInjection
 
-Object.assign(__MK_GLOBAL__, __MK_INJECTION__)
+Object.assign(__MK_GLOBAL__, {
+  ...__MK_INJECTION__,
+  hmrCss,
+} satisfies Omit<MonkeyGlobal, "loadScript">)
 
 const { userscripts } = __MK_GLOBAL__
 
-const loadedScripts: UserscriptInfo[] = []
+const loadedScripts: UserscriptInfo[] = (module.hot?.data as any)?.loadedScripts || []
 
 userscripts.filter(matchScript).forEach(loadScript)
 
@@ -56,4 +60,15 @@ function loadScript(script: UserscriptInfo) {
   loadedScripts.push(script)
 
   __MK_GLOBAL__.loadScript(script.url)
+
+  for (const asset of script.assets) {
+    if (asset.endsWith(".css")) {
+      loadCss(asset)
+    }
+  }
 }
+
+module.hot?.accept()
+module.hot?.dispose((data: any) => {
+  data.loadedScripts = loadedScripts
+})

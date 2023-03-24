@@ -80,8 +80,8 @@ function patchSockJS() {
     },
   })
 
-  // through EventTarget we can reach AbstractXHRObject.prototype
-  // because many classes inherit from EventTarget, including SockJS and AbstractXHRObject
+  // as a common superclass, EventTarget can be used as a bridge
+  // to help us go from SockJS to AbstractXHRObject
   const EventTarget = Object.getPrototypeOf(SockJS.prototype).constructor
 
   if (EventTarget?.name !== "EventTarget") {
