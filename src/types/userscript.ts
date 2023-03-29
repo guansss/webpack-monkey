@@ -6,6 +6,7 @@ export interface UserscriptInfo {
   entry: string
   url: string
   meta: UserscriptMeta
+  assets: string[]
 }
 
 export interface MonkeyInjection {

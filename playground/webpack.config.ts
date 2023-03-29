@@ -26,7 +26,7 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
       }),
     ],
     devServer: {
-      port: 9526,
+      // port: 9526,
     },
     externals: {
       ...(!isServing && {
@@ -59,6 +59,7 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
         {
           test: /\.css$/i,
           use: [
+            // "style-loader",
             MiniCssExtractPlugin.loader,
             {
               loader: "css-loader",

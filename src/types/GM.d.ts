@@ -143,10 +143,13 @@ declare function GM_xmlhttpRequest(details: GM_xmlhttpRequestParams): {
   abort(): void
 }
 
-declare function GM_addElement(tag_name: string, attributes: Record<string, string>): HTMLElement
-
-declare function GM_addElement(
-  parent_node: HTMLElement,
-  tag_name: string,
+declare function GM_addElement<K extends keyof HTMLElementTagNameMap>(
+  tag_name: K,
   attributes: Record<string, string>
-): HTMLElement
+): HTMLElementTagNameMap[K]
+
+declare function GM_addElement<K extends keyof HTMLElementTagNameMap>(
+  parent_node: HTMLElement,
+  tag_name: K,
+  attributes: Record<string, string>
+): HTMLElementTagNameMap[K]
