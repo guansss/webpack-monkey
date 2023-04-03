@@ -82,7 +82,7 @@ function createRequireResolver({
 
     if (lockVersions && !packageVersion) {
       throw new Error(
-        `"exactVersion" is enabled but the package version could not be found, probably because the package is not installed.`
+        `"lockVersions" is enabled but the version of "${name}" could not be found, probably because this package is not installed as a direct dependency.`
       )
     }
 

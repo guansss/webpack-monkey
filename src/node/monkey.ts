@@ -15,6 +15,7 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
     config.plugins.push(plugin)
 
     config.optimization ??= {}
+    config.optimization.runtimeChunk ??= "single"
     config.optimization.minimizer ??= []
     config.optimization.minimizer.push(new MonkeyWebpackMinimizer(options))
 
@@ -55,9 +56,6 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
     }
 
     config.externalsType ??= "var"
-
-    config.optimization ??= {}
-    config.optimization.runtimeChunk ??= "single"
 
     config.output ??= {}
     config.output.filename ??= "[name].user.js"
