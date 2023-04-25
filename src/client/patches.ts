@@ -5,10 +5,7 @@ import { parentUntil } from "../shared/utils"
 
 import { GM_fetch } from "./counterfeits/fetch"
 import { GM_XHR } from "./counterfeits/xhr"
-import { enableHMR } from "./hmr"
 import { log } from "./log"
-
-enableHMR(module)
 
 patchHMR()
 patchLoadScript()
@@ -37,7 +34,11 @@ function patchHMR() {
 function patchLoadScript() {
   const inProgress: Record<string, ((event: unknown) => void)[]> = {}
 
-  ;(__webpack_require__ as any).l = (url: string, done: (event: unknown) => void, key: string) => {
+  ;(__webpack_require__ as any).l = function monkeyLoadScript(
+    url: string,
+    done: (event: unknown) => void,
+    key: string
+  ) {
     if (inProgress[url]) {
       inProgress[url]!.push(done)
       return
@@ -45,6 +46,7 @@ function patchLoadScript() {
 
     inProgress[url] = [done]
 
+    // TODO: reveal the content in devtools
     GM_fetch(url)
       .then((res) => res.text())
       .then((code) => {
