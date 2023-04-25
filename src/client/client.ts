@@ -8,6 +8,7 @@ import { log } from "./log"
 enableHMR(module)
 
 interface MonkeyGlobal extends MonkeyInjection {
+  inspectRuntime: () => void
   loadScript: (url: string) => void
   miniCssExtractHmr: (moduleId: string, options: object) => () => void
   styleLoaderInsertStyleElement: (options: object) => HTMLStyleElement
@@ -25,7 +26,7 @@ Object.assign(__MK_GLOBAL__, {
   ...__MK_INJECTION__,
   miniCssExtractHmr,
   styleLoaderInsertStyleElement,
-} satisfies Omit<MonkeyGlobal, "loadScript">)
+} satisfies Omit<MonkeyGlobal, "loadScript" | "inspectRuntime">)
 
 const { userscripts } = __MK_GLOBAL__
 

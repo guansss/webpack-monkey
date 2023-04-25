@@ -10,6 +10,7 @@ import {
   CLIENT_SCRIPT,
   DEV_SCRIPT,
   VAR_MK_DEV_INJECTION,
+  VAR_MK_GLOBAL,
   VAR_MK_INJECTION,
 } from "../shared/constants"
 import { getGMAPIs } from "../shared/GM"
@@ -405,6 +406,7 @@ export class MonkeyWebpackPlugin {
                 `window.${VAR_MK_INJECTION} = ${JSON.stringify({
                   userscripts: qualifiedUserscripts,
                 })};\n\n`,
+                `window.${VAR_MK_GLOBAL}.inspectRuntime = function() { console.log("runtime") };\n\n`,
                 runtimeSource
               )
 

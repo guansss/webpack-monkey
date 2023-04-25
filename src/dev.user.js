@@ -8,7 +8,7 @@
     return
   }
 
-  window.__MK_GLOBAL__ = {
+  window.__MK_GLOBAL__ = unsafeWindow.__MK_GLOBAL__ = {
     loadScript: (url) => {
       return new Promise((resolve, reject) => {
         const fail = () => {

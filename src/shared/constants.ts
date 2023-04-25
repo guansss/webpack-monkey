@@ -1,3 +1,4 @@
+export const VAR_MK_GLOBAL = "__MK_GLOBAL__"
 export const VAR_MK_INJECTION = "__MK_INJECTION__"
 export const VAR_MK_DEV_INJECTION = "__MK_DEV_INJECTION__"
 
