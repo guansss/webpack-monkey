@@ -1,4 +1,4 @@
-import { isObject } from "lodash"
+import { isNil, isObject } from "lodash"
 import { Configuration } from "webpack"
 import { MonkeyWebpackMinimizer, MonkeyWebpackMinimizerOptions } from "./MonkeyWebpackMinimizer"
 import { MonkeyWebpackPlugin, MonkeyWebpackPluginOptions } from "./MonkeyWebpackPlugin"
@@ -9,15 +9,30 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
   return (config: Configuration) => {
     const plugin = new MonkeyWebpackPlugin(options)
 
+    const isServing = process.env.WEBPACK_SERVE === "true"
+
     config ??= {}
 
     config.plugins ??= []
     config.plugins.push(plugin)
 
     config.optimization ??= {}
-    config.optimization.runtimeChunk ??= "single"
     config.optimization.minimizer ??= []
     config.optimization.minimizer.push(new MonkeyWebpackMinimizer(options))
+
+    type RuntimeChunkValue = NonNullable<Configuration["optimization"]>["runtimeChunk"]
+    const runtimeChunkValue: RuntimeChunkValue = isServing ? "single" : false
+
+    if (
+      !isNil(config.optimization.runtimeChunk) &&
+      config.optimization.runtimeChunk !== runtimeChunkValue
+    ) {
+      console.warn(
+        `MonkeyWebpackPlugin: "optimization.runtimeChunk" is specified as a value other than "${runtimeChunkValue}". Overriding it to "${runtimeChunkValue}".`
+      )
+    }
+
+    config.optimization.runtimeChunk = runtimeChunkValue
 
     config.devServer ??= {}
     config.devServer.hot ??= "only"
