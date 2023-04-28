@@ -9,7 +9,7 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
   return (config: Configuration) => {
     const plugin = new MonkeyWebpackPlugin(options)
 
-    const isServing = process.env.WEBPACK_SERVE === "true"
+    const isServe = process.env.WEBPACK_SERVE === "true"
 
     config ??= {}
 
@@ -21,7 +21,7 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
     config.optimization.minimizer.push(new MonkeyWebpackMinimizer(options))
 
     type RuntimeChunkValue = NonNullable<Configuration["optimization"]>["runtimeChunk"]
-    const runtimeChunkValue: RuntimeChunkValue = isServing ? "single" : false
+    const runtimeChunkValue: RuntimeChunkValue = isServe ? "single" : false
 
     if (
       !isNil(config.optimization.runtimeChunk) &&

@@ -6,6 +6,7 @@ import { castArray, compact, find, isObject, isString, without } from "lodash"
 import path from "path"
 import { Writable } from "type-fest"
 import { Chunk, Compilation, Compiler, EntryPlugin, ExternalModule, sources } from "webpack"
+import { getGMAPIs } from "../shared/GM"
 import {
   CLIENT_SCRIPT,
   DEV_SCRIPT,
@@ -13,7 +14,6 @@ import {
   VAR_MK_GLOBAL,
   VAR_MK_INJECTION,
 } from "../shared/constants"
-import { getGMAPIs } from "../shared/GM"
 import { UserscriptMeta } from "../shared/meta"
 import { MonkeyDevInjection, UserscriptInfo } from "../types/userscript"
 import { MaybePromise } from "../types/utils"
@@ -44,7 +44,6 @@ type WebpackLogger = Compilation["logger"]
 type EntryDependency = ReturnType<(typeof EntryPlugin)["createDependency"]>
 
 export interface MonkeyWebpackPluginOptions {
-  serve?: boolean
   require?:
     | CdnProvider
     | RequireResolver
@@ -208,15 +207,10 @@ export class MonkeyWebpackPlugin {
   }
 
   apply(compiler: Compiler) {
-    const isBuild = !compiler.options.mode || compiler.options.mode === "production"
+    const isServe = process.env.WEBPACK_SERVE === "true"
+    const isBuild = !isServe
 
-    const isServing = !!(
-      process.env
-        .WEBPACK_SERVE /* a TODO in webpack-dev-server says this will change in next major release, I'm not sure what it will be */ ||
-      this.options.serve
-    )
-
-    if (isServing) {
+    if (isServe) {
       new EntryPlugin(compiler.context, require.resolve("../client/client.ts"), {
         name: "monkey-client",
         filename: CLIENT_SCRIPT,
@@ -257,14 +251,6 @@ export class MonkeyWebpackPlugin {
       (compilation, { normalModuleFactory }) => {
         this.logger = compilation.getLogger(this.constructor.name)
 
-        if (!isServing && !isBuild && this.options.serve === undefined) {
-          this.logger.warn(
-            "Not in build or serve mode, this plugin will do nothing. If this is not intended, set `serve: true` in the plugin options to explicitly enable serve mode, otherwise, set `serve: false` to suppress this warning."
-          )
-
-          return
-        }
-
         const projectPackageJson = getPackageJson(
           compilation.inputFileSystem,
           compiler.context
@@ -280,7 +266,7 @@ export class MonkeyWebpackPlugin {
           return jsFiles[0]
         }
 
-        if (isServing) {
+        if (isServe) {
           const originReady = this.receivePort.then(
             (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
           )
