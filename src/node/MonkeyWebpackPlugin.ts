@@ -39,6 +39,10 @@ type MetaLoader = (
   args: { file: string },
   context: MonkeyWebpackPlugin
 ) => MaybePromise<UserscriptMeta>
+type metaTransformer = (
+  meta: UserscriptMeta,
+  context: MonkeyWebpackPlugin
+) => MaybePromise<UserscriptMeta>
 
 type WebpackLogger = Compilation["logger"]
 type EntryDependency = ReturnType<(typeof EntryPlugin)["createDependency"]>
@@ -54,6 +58,7 @@ export interface MonkeyWebpackPluginOptions {
   meta?: {
     resolve?: string | string[] | MetaResolver
     loader?: MetaLoader
+    transform?: metaTransformer
   }
   transformDevEntry?: (content: string) => string
 }
@@ -167,6 +172,7 @@ export class MonkeyWebpackPlugin {
   requireResolver: RequireResolver
   metaResolver: MetaResolver
   metaLoader: MetaLoader
+  metaTransformer?: metaTransformer
 
   userscripts: Omit<UserscriptInfo, "url">[] = []
   userscriptFinished = Promise.resolve()
@@ -182,6 +188,7 @@ export class MonkeyWebpackPlugin {
     this.requireResolver = createRequireResolver(options)
     this.metaResolver = createMetaResolver(options)
     this.metaLoader = createMetaLoader(options)
+    this.metaTransformer = options.meta?.transform
 
     this.receivePort = new Promise((resolve) => {
       let resolved = false
@@ -300,14 +307,18 @@ export class MonkeyWebpackPlugin {
               return
             }
 
-            const promise = (async () => {
+            const loadUserscriptPromise = (async () => {
               const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
 
               if (!metaFile) {
                 return
               }
 
-              const meta = await this.metaLoader({ file: metaFile }, this)
+              let meta = await this.metaLoader({ file: metaFile }, this)
+
+              if (this.metaTransformer) {
+                meta = await this.metaTransformer(meta, this)
+              }
 
               const userscript: Omit<UserscriptInfo, "url"> = {
                 name,
@@ -326,7 +337,7 @@ export class MonkeyWebpackPlugin {
               }
             })()
 
-            this.userscriptFinished = this.userscriptFinished.then(() => promise)
+            this.userscriptFinished = this.userscriptFinished.then(() => loadUserscriptPromise)
           })
 
           compilation.hooks.processAssets.tapPromise(
