@@ -1,4 +1,4 @@
-import mitt from "mitt"
+import mitt, { Emitter } from "mitt"
 import { overrideValue } from "../shared/patching"
 import { MapValues } from "../types/utils"
 import { WebpackModule, WebpackModuleId } from "../types/webpack"
@@ -29,9 +29,7 @@ type HMREvents = {
   accepted: HotEventOf<"accepted">
 }
 
-const hmrEmitter = mitt<HMREvents>()
-
-setupHMR()
+let hmrEmitter: Emitter<HMREvents>
 
 export interface EnableHMROptions {
   ignore?: (string | RegExp)[]
@@ -42,7 +40,8 @@ export function enableHMR(_module: NodeModule, { ignore, filter }: EnableHMROpti
   const rootModule = _module as unknown as WebpackModule
 
   if (!rootModule.hot) {
-    throw new Error("HMR is not available")
+    console.error("HMR is not available")
+    return
   }
 
   if (!ignore) {
@@ -62,6 +61,8 @@ export function enableHMR(_module: NodeModule, { ignore, filter }: EnableHMROpti
       })
     }
   }
+
+  setupHMR()
 
   const getModuleFromCache = (id: WebpackModuleId) => require.cache[id] as WebpackModule | undefined
 
@@ -96,7 +97,10 @@ export function enableHMR(_module: NodeModule, { ignore, filter }: EnableHMROpti
 }
 
 function setupHMR() {
-  ;(__webpack_require__ as any).hmrC["webpack-monkey"] = (
+  hmrEmitter ||= mitt<HMREvents>()
+
+  // don't mess up the format, Prettier!
+  ;(__webpack_require__ as any).hmrC["webpack-monkey"] ||= (
     chunkIds: unknown[],
     removedChunks: unknown[],
     removedModules: WebpackModuleId[],

@@ -5,4 +5,6 @@ import "./style.css"
 
 console.log(`[hello] Hello, world! (a = ${a}, b = ${b})`)
 
-enableHMR(module)
+if (module.hot) {
+  enableHMR(module)
+}

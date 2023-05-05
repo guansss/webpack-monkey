@@ -1,6 +1,10 @@
-let log: typeof console.log
+let log: typeof console.log = (...args: any[]) => {
+  if (!log) {
+    setLogger(console.log)
+  }
 
-setLogger(console.log)
+  log(...args)
+}
 
 export function setLogger(logger: typeof console.log) {
   let tagName = GM_info.script.name
