@@ -1,6 +1,6 @@
 // @ts-ignore
 // prettier-ignore
-export { getDescriptionFile, getRequiredVersionFromDescriptionFile } from "webpack/lib/sharing/utils";
+import { getDescriptionFile, getRequiredVersionFromDescriptionFile } from "webpack/lib/sharing/utils";
 
 import { isArray, isBoolean, isNil, isObject, isString } from "lodash"
 import { Compilation, sources } from "webpack"
@@ -13,13 +13,11 @@ export function getPackageDepVersion(packageJson: any, dep: string): string | un
     return undefined
   }
 
-  // @ts-ignore
   return getRequiredVersionFromDescriptionFile(packageJson, dep)
 }
 
 export function getPackageJson(fs: Compilation["inputFileSystem"], context: string) {
   return new Promise<{ data: object; path: string }>((resolve, reject) => {
-    // @ts-ignore
     getDescriptionFile(fs, context, ["package.json"], (err: any, result: any) => {
       if (err) {
         reject(err)
