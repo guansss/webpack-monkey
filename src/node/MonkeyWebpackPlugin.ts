@@ -60,6 +60,10 @@ export interface MonkeyWebpackPluginOptions {
     loader?: MetaLoader
     transform?: metaTransformer
   }
+  devScript?: {
+    name?: string
+    transform?: (content: string) => string
+  }
   debug?: boolean
 }
 
@@ -429,19 +433,30 @@ export class MonkeyWebpackPlugin {
               content =
                 `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify(devInjection)};\n\n` + content
 
+              let devScriptName = this.options.devScript?.name
+
+              if (!devScriptName) {
+                const projectName = ((await projectPackageJson) as any)?.data?.name
+
+                devScriptName = `[Dev] ${projectName || "untitled project"}`
+              }
+
               content =
-                generateMetaBlock(getGMAPIs().join("\n"), {
-                  name: "Monkey Dev",
+                generateMetaBlock("", {
+                  name: devScriptName,
                   version: "1.0.0",
                   // TODO: change to *://*/*
                   match: ["*://127.0.0.1/*", "*://localhost/*"],
+
+                  // put everything in these fields because we don't know what the userscripts will do
                   connect: "*",
+                  grant: getGMAPIs(),
                 }) +
                 "\n\n" +
                 content
 
-              if (this.options.transformDevEntry) {
-                content = this.options.transformDevEntry(content)
+              if (this.options.devScript?.transform) {
+                content = this.options.devScript.transform(content)
               }
 
               const source = new RawSource(content)
