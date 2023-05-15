@@ -60,7 +60,7 @@ export interface MonkeyWebpackPluginOptions {
     loader?: MetaLoader
     transform?: metaTransformer
   }
-  transformDevEntry?: (content: string) => string
+  debug?: boolean
 }
 
 const cdnProviders: Record<CdnProvider, string> = {
@@ -261,7 +261,12 @@ export class MonkeyWebpackPlugin {
         const projectPackageJson = getPackageJson(
           compilation.inputFileSystem,
           compiler.context
-        ).catch(() => undefined)
+        ).catch((e) => {
+          if (this.options.debug) {
+            this.logger.warn(e)
+          }
+          return undefined
+        })
 
         function findOneOrNoneJsFile(chunk: Chunk) {
           const jsFiles = Array.from(chunk.files).filter((file) => file.endsWith(".js"))
@@ -292,7 +297,12 @@ export class MonkeyWebpackPlugin {
 
           originReady.then(() => {
             const url = getAssetUrl(DEV_SCRIPT)
-            this.logger.info(`[webpack-monkey] dev userscript: ${colorize("cyan", url)}`)
+            this.logger.info(
+              `[webpack-monkey] Start your development by installing the dev script: ${colorize(
+                "cyan",
+                url
+              )}`
+            )
           })
 
           compilation.hooks.succeedEntry.tap(this.constructor.name, (dependency, { name }) => {
