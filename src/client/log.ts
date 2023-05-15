@@ -1,5 +1,7 @@
-let log: typeof console.log = (...args: any[]) => {
-  if (!log) {
+let logInitialized = false
+
+let log: typeof console.log = (...args) => {
+  if (!logInitialized) {
     setLogger(console.log)
   }
 
@@ -7,6 +9,8 @@ let log: typeof console.log = (...args: any[]) => {
 }
 
 export function setLogger(logger: typeof console.log) {
+  logInitialized = true
+
   let tagName = GM_info.script.name
 
   try {
