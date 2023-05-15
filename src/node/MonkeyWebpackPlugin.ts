@@ -309,50 +309,60 @@ export class MonkeyWebpackPlugin {
             )
           })
 
-          compilation.hooks.succeedEntry.tap(this.constructor.name, (dependency, { name }) => {
-            if (!name) {
-              // do not process global entries
-              return
-            }
-
-            const entryFile = (dependency as EntryDependency)?.request
-
-            if (!entryFile) {
-              return
-            }
-
-            const loadUserscriptPromise = (async () => {
-              const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
-
-              if (!metaFile) {
+          compilation.hooks.succeedEntry.tap(
+            this.constructor.name,
+            (dependency, { name, filename }) => {
+              if (!name) {
+                // do not process global entries
                 return
               }
 
-              let meta = await this.metaLoader({ file: metaFile }, this)
+              const entryFile = (dependency as EntryDependency)?.request
 
-              if (this.metaTransformer) {
-                meta = await this.metaTransformer(meta, this)
+              if (!entryFile) {
+                return
               }
 
-              const userscript: Omit<UserscriptInfo, "url"> = {
-                name,
-                entry: entryFile,
-                dir: path.dirname(entryFile),
-                meta,
-                assets: [],
+              if (filename === CLIENT_SCRIPT) {
+                return
               }
 
-              const existing = this.userscripts.find((u) => u.name === name)
+              const loadUserscriptPromise = (async () => {
+                const metaFile = await this.metaResolver(
+                  { entryName: name, entry: entryFile },
+                  this
+                )
 
-              if (existing) {
-                Object.assign(existing, userscript)
-              } else {
-                this.userscripts.push(userscript)
-              }
-            })()
+                if (!metaFile) {
+                  return
+                }
 
-            this.userscriptFinished = this.userscriptFinished.then(() => loadUserscriptPromise)
-          })
+                let meta = await this.metaLoader({ file: metaFile }, this)
+
+                if (this.metaTransformer) {
+                  meta = await this.metaTransformer(meta, this)
+                }
+
+                const userscript: Omit<UserscriptInfo, "url"> = {
+                  name,
+                  entry: entryFile,
+                  dir: path.dirname(entryFile),
+                  meta,
+                  assets: [],
+                }
+
+                const existing = this.userscripts.find((u) => u.name === name)
+
+                if (existing) {
+                  Object.assign(existing, userscript)
+                } else {
+                  this.userscripts.push(userscript)
+                }
+              })()
+
+              this.userscriptFinished = this.userscriptFinished.then(() => loadUserscriptPromise)
+            }
+          )
 
           compilation.hooks.processAssets.tapPromise(
             {
