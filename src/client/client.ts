@@ -1,4 +1,4 @@
-import { compact } from "lodash"
+import { compact } from "lodash-es"
 import { urlMatch } from "../shared/utils"
 import { MonkeyInjection, UserscriptInfo } from "../types/userscript"
 import { loadCss, miniCssExtractHmr, styleLoaderInsertStyleElement } from "./css"

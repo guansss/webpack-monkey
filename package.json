@@ -2,41 +2,70 @@
   "name": "webpack-monkey",
   "version": "0.1.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "playground": "webpack serve --config=./playground/webpack.config.ts",
-    "playground:build": "webpack --config=./playground/webpack.config.ts"
+    "playground:build": "webpack --config=./playground/webpack.config.ts",
+    "clean": "rimraf -g ./dist/*",
+    "build": "npm run clean && npm run build:node && npm run build:client",
+    "build:node": "tsc -p tsconfig.build-node.json && node ./scripts/rename-shared.js node",
+    "build:client": "tsc -p tsconfig.build-client.json && node ./scripts/rename-shared.js client",
+    "update-example": "node -p \"require('fs').copyFileSync('package.json','./dist/package.json')\" && cd ./dist && npm pack && cd .. && npm install ./dist/webpack-monkey-0.1.0.tgz -w @example/hello-world"
   },
+  "exports": {
+    ".": {
+      "import": "./lib/index.js",
+      "require": "./lib/index.js"
+    },
+    "./client": {
+      "import": "./lib/client/exports.js",
+      "require": "./lib/client/exports.js"
+    }
+  },
+  "files": [
+    "lib",
+    "types",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/guansss/webpack-monkey.git"
   },
-  "author": "",
+  "author": "Guan",
   "license": "MIT",
   "homepage": "https://github.com/guansss/webpack-monkey#readme",
   "dependencies": {
     "browser-extension-url-match": "^0.3.3",
-    "css-loader": "^6.7.3",
-    "glob": "^9.2.1",
     "lodash": "^4.17.21",
+    "lodash-es": "^4.17.21",
     "mitt": "^3.0.0",
-    "postcss-loader": "^7.1.0",
-    "prettier": "^2.8.4",
+    "tsc-alias": "^1.8.6",
+    "vite": "^4.3.7"
+  },
+  "peerDependencies": {
+    "webpack": "^5.82.1",
+    "webpack-dev-server": "^4.15.0"
+  },
+  "optionalDependencies": {
+    "@types/lodash": "^4.14.194",
+    "@types/lodash-es": "^4.17.7",
+    "@types/webpack": "^5.28.1",
+    "type-fest": "^3.10.0",
+    "typescript": "^5.0.4"
+  },
+  "devDependencies": {
+    "css-loader": "^6.7.3",
+    "glob": "^10.2.4",
+    "mini-css-extract-plugin": "^2.7.5",
+    "postcss-loader": "^7.3.0",
+    "postcss-preset-env": "^8.3.2",
+    "prettier": "^2.8.8",
+    "rimraf": "^5.0.0",
     "style-loader": "^3.3.2",
     "ts-loader": "^9.4.2",
     "ts-node": "^10.9.1",
-    "type-fest": "^3.6.1",
-    "typescript": "^4.9.5",
-    "webpack": "^5.75.0",
-    "webpack-cli": "^5.0.1",
-    "webpack-dev-server": "^4.11.1",
-    "webpack-merge": "^5.8.0"
+    "webpack-cli": "^5.1.1"
   },
-  "devDependencies": {
-    "@types/lodash": "^4.14.191",
-    "@types/prettier": "^2.7.2",
-    "@types/webpack": "^5.28.0",
-    "mini-css-extract-plugin": "^2.7.3",
-    "postcss-preset-env": "^8.0.1"
-  }
+  "workspaces": [
+    "examples/*"
+  ]
 }

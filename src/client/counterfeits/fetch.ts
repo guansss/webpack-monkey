@@ -1,4 +1,4 @@
-import { isPlainObject } from "lodash"
+import { isPlainObject } from "lodash-es"
 import { assertXHRMethod, parseHeaders } from "./utils"
 
 type CounterfeitFetch = (

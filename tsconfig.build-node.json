@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts",  "src/**/*.d.ts"],
+  "exclude": ["src/client/**/*"],
+  "compilerOptions": {
+    "module": "CommonJS"
+  }
+}

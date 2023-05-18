@@ -1,7 +1,7 @@
-import { debounce } from "lodash"
+import { debounce } from "lodash-es"
 import { log } from "./log"
 
-const linkElements = new Set<HTMLLinkElement>()
+const linkElements = /*#__PURE__*/ new Set<HTMLLinkElement>()
 
 export async function loadCss(url: string) {
   const element = GM_addElement("link", {
@@ -13,7 +13,10 @@ export async function loadCss(url: string) {
 }
 
 export function styleLoaderInsertStyleElement(options: any) {
-  options.styleTagTransform = function monkeyStyleTagTransform(css: string, styleElement: HTMLStyleElement) {
+  options.styleTagTransform = function monkeyStyleTagTransform(
+    css: string,
+    styleElement: HTMLStyleElement
+  ) {
     styleElement?.remove()
     GM_addStyle(css)
   }
