@@ -185,7 +185,7 @@ export class MonkeyWebpackPlugin {
   userscriptFinished = Promise.resolve()
 
   receivePort?: Promise<number>
-  readonly setPort!: (port: number) => void
+  readonly setPort = (port: number) => {}
 
   // assume that we won't call it before ready
   logger!: WebpackLogger
