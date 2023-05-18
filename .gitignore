@@ -1,7 +1,9 @@
+/dist
+/playground/**/dist
+
 .vscode
 
 .idea/
-dist/
 *.local
 
 # Logs
@@ -85,7 +87,6 @@ typings/
 
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Gatsby files
 .cache/
