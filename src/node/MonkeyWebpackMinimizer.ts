@@ -4,14 +4,17 @@ import { Compiler } from "webpack"
 import { isPatched, markAsPatched } from "../shared/patching"
 import { parentUntil } from "../shared/utils"
 
+type TerserPluginOptions = ConstructorParameters<typeof TerserPlugin>[0]
+
 export interface MonkeyWebpackMinimizerOptions {
+  terserPluginOptions?: TerserPluginOptions
   beautify?: {
     prettier?: boolean
   }
 }
 
 export class MonkeyWebpackMinimizer extends TerserPlugin {
-  // TerserPlugin has its own options property
+  // TerserPlugin already defines this.options, we use a different name
   mkOptions: MonkeyWebpackMinimizerOptions
 
   logger = console
@@ -20,7 +23,8 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
 
   constructor(options: MonkeyWebpackMinimizerOptions = {}) {
     super({
-      parallel: false,
+      ...options.terserPluginOptions,
+      parallel: false, // TODO: figure out why I set this to false in the past
       minify: async (file, ...rest) => {
         file = { ...file }
 
@@ -36,7 +40,7 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
             .replace(/\/\/ webpackBootstrap/g, "")
         }
 
-        // run a dummy minify to allow the `comments` callback (see below)
+        // run a dummy minify to allow `terserOptions.format.comments`
         // to patch the internal methods before running the real minify
         await TerserPlugin.terserMinify({ "dummy.js": "// dummy" }, ...rest)
 
@@ -50,7 +54,9 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
         return result
       },
       terserOptions: {
+        ...options.terserPluginOptions?.terserOptions,
         compress: {
+          ...(options.terserPluginOptions?.terserOptions as any)?.compress,
           defaults: false,
           dead_code: true,
           unused: true,
@@ -59,8 +65,13 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
         },
         mangle: false,
         format: {
+          ...(options.terserPluginOptions?.terserOptions as any)?.format,
           comments: (node, comment) => {
-            this.patchOutputStream(node)
+            try {
+              this.patchOutputStream(node)
+            } catch (e) {
+              this.logger.warn("failed to patch Terser:", e)
+            }
 
             return true
           },
@@ -101,7 +112,9 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
 
         AST_Node_prototype.print = function (this: unknown, output: any, ...rest: any[]) {
           if (!output || !("indent" in output)) {
-            self.logger.warn("failed to patch: not getting an OutputStream instance.")
+            self.logger.warn(
+              "failed to patch Terser's OutputStream: not getting an OutputStream instance."
+            )
           } else if (!isPatched(output)) {
             markAsPatched(output)
 
