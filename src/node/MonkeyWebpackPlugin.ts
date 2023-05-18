@@ -67,6 +67,9 @@ export interface MonkeyWebpackPluginOptions {
   debug?: boolean
 }
 
+const isServe = process.env.WEBPACK_SERVE === "true"
+const isBuild = !isServe
+
 const cdnProviders: Record<CdnProvider, string> = {
   jsdelivr: "https://cdn.jsdelivr.net/npm",
   unpkg: "https://unpkg.com",
@@ -181,7 +184,7 @@ export class MonkeyWebpackPlugin {
   userscripts: Omit<UserscriptInfo, "url">[] = []
   userscriptFinished = Promise.resolve()
 
-  receivePort: Promise<number>
+  receivePort?: Promise<number>
   readonly setPort!: (port: number) => void
 
   // assume that we won't call it before ready
@@ -194,33 +197,32 @@ export class MonkeyWebpackPlugin {
     this.metaLoader = createMetaLoader(options)
     this.metaTransformer = options.meta?.transform
 
-    this.receivePort = new Promise((resolve) => {
-      let resolved = false
+    if (isServe) {
+      this.receivePort = new Promise((resolve) => {
+        let resolved = false
 
-      const timer = setTimeout(() => {
-        if (!resolved) {
-          this.logger.warn("Port not received after 10 seconds, assuming 8080.")
-          resolve(8080)
+        const timer = setTimeout(() => {
+          if (!resolved) {
+            this.logger.warn("Port not received after 10 seconds, assuming 8080.")
+            resolve(8080)
+          }
+        }, 1000 * 10)
+
+        ;(this as Writable<this>).setPort = (port) => {
+          if (resolved) {
+            this.logger.warn("setPort() called multiple times, ignoring.")
+            return
+          }
+
+          resolved = true
+          clearTimeout(timer)
+          resolve(port)
         }
-      }, 1000 * 10)
-
-      ;(this as Writable<this>).setPort = (port) => {
-        if (resolved) {
-          this.logger.warn("setPort() called multiple times, ignoring.")
-          return
-        }
-
-        resolved = true
-        clearTimeout(timer)
-        resolve(port)
-      }
-    })
+      })
+    }
   }
 
   apply(compiler: Compiler) {
-    const isServe = process.env.WEBPACK_SERVE === "true"
-    const isBuild = !isServe
-
     if (isServe) {
       new EntryPlugin(compiler.context, require.resolve("../client/client.ts"), {
         name: "monkey-client",
@@ -283,7 +285,7 @@ export class MonkeyWebpackPlugin {
         }
 
         if (isServe) {
-          const originReady = this.receivePort.then(
+          const originReady = this.receivePort!.then(
             (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
           )
 
