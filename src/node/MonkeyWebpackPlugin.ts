@@ -182,7 +182,7 @@ export class MonkeyWebpackPlugin {
   metaTransformer?: metaTransformer
 
   userscripts: Omit<UserscriptInfo, "url">[] = []
-  userscriptFinished = Promise.resolve()
+  userscriptsLoaded = Promise.resolve()
 
   receivePort?: Promise<number>
   readonly setPort = (port: number) => {}
@@ -284,6 +284,58 @@ export class MonkeyWebpackPlugin {
           return jsFiles[0]
         }
 
+        compilation.hooks.succeedEntry.tap(
+          this.constructor.name,
+          (dependency, { name, filename }) => {
+            if (!name) {
+              // do not process global entries
+              return
+            }
+
+            const entryFile = (dependency as EntryDependency)?.request
+
+            if (!entryFile) {
+              return
+            }
+
+            if (filename === CLIENT_SCRIPT) {
+              return
+            }
+
+            const loadUserscriptPromise = (async () => {
+              const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
+
+              if (!metaFile) {
+                return
+              }
+
+              let meta = await this.metaLoader({ file: metaFile }, this)
+
+              if (this.metaTransformer) {
+                meta = await this.metaTransformer(meta, this)
+              }
+
+              const userscript: Omit<UserscriptInfo, "url"> = {
+                name,
+                entry: entryFile,
+                dir: path.dirname(entryFile),
+                meta,
+                assets: [],
+              }
+
+              const existing = this.userscripts.find((u) => u.name === name)
+
+              if (existing) {
+                Object.assign(existing, userscript)
+              } else {
+                this.userscripts.push(userscript)
+              }
+            })()
+
+            this.userscriptsLoaded = this.userscriptsLoaded.then(() => loadUserscriptPromise)
+          }
+        )
+
         if (isServe) {
           const originReady = this.receivePort!.then(
             (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
@@ -311,68 +363,13 @@ export class MonkeyWebpackPlugin {
             )
           })
 
-          compilation.hooks.succeedEntry.tap(
-            this.constructor.name,
-            (dependency, { name, filename }) => {
-              if (!name) {
-                // do not process global entries
-                return
-              }
-
-              const entryFile = (dependency as EntryDependency)?.request
-
-              if (!entryFile) {
-                return
-              }
-
-              if (filename === CLIENT_SCRIPT) {
-                return
-              }
-
-              const loadUserscriptPromise = (async () => {
-                const metaFile = await this.metaResolver(
-                  { entryName: name, entry: entryFile },
-                  this
-                )
-
-                if (!metaFile) {
-                  return
-                }
-
-                let meta = await this.metaLoader({ file: metaFile }, this)
-
-                if (this.metaTransformer) {
-                  meta = await this.metaTransformer(meta, this)
-                }
-
-                const userscript: Omit<UserscriptInfo, "url"> = {
-                  name,
-                  entry: entryFile,
-                  dir: path.dirname(entryFile),
-                  meta,
-                  assets: [],
-                }
-
-                const existing = this.userscripts.find((u) => u.name === name)
-
-                if (existing) {
-                  Object.assign(existing, userscript)
-                } else {
-                  this.userscripts.push(userscript)
-                }
-              })()
-
-              this.userscriptFinished = this.userscriptFinished.then(() => loadUserscriptPromise)
-            }
-          )
-
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,
               stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
             },
             async (assets) => {
-              await this.userscriptFinished
+              await this.userscriptsLoaded
               await originReady
 
               const qualifiedUserscripts: UserscriptInfo[] = []
@@ -485,6 +482,8 @@ export class MonkeyWebpackPlugin {
               stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
             },
             async (assets) => {
+              await this.userscriptsLoaded
+
               await Promise.all(
                 Array.from(compilation.entrypoints).map(async ([entryName, { chunks }]) => {
                   const userscript = this.userscripts.find((u) => u.name === entryName)
