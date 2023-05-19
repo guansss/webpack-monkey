@@ -479,7 +479,7 @@ export class MonkeyWebpackPlugin {
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,
-              stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
+              stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE,
             },
             async (assets) => {
               await this.userscriptsLoaded
@@ -507,8 +507,6 @@ export class MonkeyWebpackPlugin {
                         this.logger.warn("js file not found:", jsFile)
                         return
                       }
-
-                      const rawJsSource = jsSource.source().toString("utf-8")
 
                       // TODO: more reliable way to get all modules
                       const modules = compilation.chunkGraph
@@ -547,64 +545,47 @@ export class MonkeyWebpackPlugin {
                         )
                       )
 
-                      const newJsSource = new ConcatSource(
-                        generateMetaBlock(rawJsSource, userscript.meta, { requires }),
-                        "\n\n",
-                        rawJsSource
+                      let jsContent = jsSource.source().toString("utf-8")
+
+                      // inline CSS
+                      const cssFiles = Array.from(chunk.files).filter((file) =>
+                        file.endsWith(".css")
                       )
+
+                      if (cssFiles.length) {
+                        let concatenatedCss = ""
+
+                        for (const cssFile of cssFiles) {
+                          const cssSource = assets[cssFile]
+
+                          if (cssSource) {
+                            this.logger.info("inlining CSS:", cssFile)
+
+                            concatenatedCss += cssSource.source().toString("utf-8")
+                            compilation.deleteAsset(cssFile)
+                          } else {
+                            this.logger.warn("css file not found:", cssFile)
+                          }
+                        }
+
+                        if (concatenatedCss) {
+                          jsContent += "\nGM_addStyle(`\n" + concatenatedCss + "`)\n"
+                        }
+                      }
+
+                      // inject meta block
+                      jsContent =
+                        generateMetaBlock(jsContent, userscript.meta, { requires }) +
+                        "\n\n" +
+                        jsContent
+
+                      const newJsSource = new RawSource(jsContent)
 
                       compilation.updateAsset(jsFile, newJsSource)
                     })
                   )
                 })
               )
-            }
-          )
-
-          compilation.hooks.processAssets.tap(
-            {
-              name: this.constructor.name,
-              stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_INLINE,
-            },
-            (assets) => {
-              for (const chunk of compilation.chunks) {
-                const jsFile = findOneOrNoneJsFile(chunk)
-                const cssFiles = Array.from(chunk.files).filter((file) => file.endsWith(".css"))
-
-                if (!jsFile || !cssFiles.length) {
-                  continue
-                }
-
-                const jsSource = assets[jsFile]
-
-                if (!jsSource) {
-                  this.logger.warn("js file not found:", jsFile)
-                  continue
-                }
-
-                const concatenatedCss = new ConcatSource()
-
-                for (const cssFile of cssFiles) {
-                  const cssAsset = assets[cssFile]
-
-                  if (cssAsset) {
-                    this.logger.info("inlining CSS:", cssFile)
-
-                    concatenatedCss.add(cssAsset)
-                    compilation.deleteAsset(cssFile)
-                  } else {
-                    this.logger.warn("css file not found:", cssFile)
-                  }
-                }
-
-                const newJsSource = new ConcatSource(
-                  jsSource,
-                  "\nGM_addStyle(`\n",
-                  concatenatedCss,
-                  "`)\n"
-                )
-                compilation.updateAsset(jsFile, newJsSource)
-              }
             }
           )
         }
