@@ -52,7 +52,7 @@ npm install webpack webpack-cli webpack-monkey
 2. Create `src/index.js`:
 
 ```js
-console.log("Hello world!")
+GM_log("Hello world!")
 ```
 
 3. Create `src/meta.js`:
@@ -110,7 +110,7 @@ This one is optional. Edit `src/index.js` as follows:
 ```js
 import { enableHMR } from "webpack-monkey/client"
 
-console.log("Hello, world!")
+GM_log("Hello, world!")
 
 if (module.hot) {
   enableHMR(module)
@@ -119,7 +119,7 @@ if (module.hot) {
 
 If you've already opened the page, you need to reload the page because the HMR functionality is just added and not applied yet.
 
-Now try to change the message in `console.log`, you should see the message is updated without page reload.
+Now try to change the message in `GM_log`, you should see the message is updated without page reload.
 
 ### Build
 
