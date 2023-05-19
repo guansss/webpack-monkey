@@ -56,12 +56,12 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
       terserOptions: {
         ...options.terserPluginOptions?.terserOptions,
         compress: {
-          ...(options.terserPluginOptions?.terserOptions as any)?.compress,
           defaults: false,
           dead_code: true,
           unused: true,
           side_effects: true,
           passes: 2,
+          ...(options.terserPluginOptions?.terserOptions as any)?.compress,
         },
         mangle: false,
         format: {
