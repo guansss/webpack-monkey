@@ -49,13 +49,13 @@ npm init -y
 npm install webpack webpack-cli webpack-monkey
 ```
 
-2. Create `src/index.js` with the following content:
+2. Create `src/index.js`:
 
 ```js
 console.log("Hello world!")
 ```
 
-3. Create `src/meta.js` with the following content:
+3. Create `src/meta.js`:
 
 ```js
 module.exports = {
@@ -65,7 +65,7 @@ module.exports = {
 }
 ```
 
-4. Create `webpack.config.js` with the following content:
+4. Create `webpack.config.js`:
 
 ```js
 const path = require("path")
@@ -101,7 +101,7 @@ Run `npm run dev`, a URL will be printed in the console like this:
 
 Now open the URL in your browser and install the dev script. Then go to `http://example.com` and open the console, you should see the message `Hello world!`.
 
-Note: unless the dev server's *port* has changed, you don't need to install the dev script again after re-running `npm run dev`.
+Note: unless the dev server's _port_ has changed, you don't need to install the dev script again after re-running `npm run dev`.
 
 ### HMR
 
@@ -123,7 +123,26 @@ Now try to change the message in `console.log`, you should see the message is up
 
 ### Build
 
-Run `npm run build`, the final userscript will be generated in `dist/hello.user.js`.
+Run `npm run build`, the final userscript will be generated at `dist/hello.user.js`.
+
+The output will be like this:
+
+```js
+// ==UserScript==
+// @name     Hello world
+// @grant    GM_log
+// @match    *://example.com
+// @version  1.0.0
+// ==/UserScript==
+
+;(() => {
+  "use strict"
+
+  GM_log("Hello, world!")
+})()
+```
+
+Note that the `GM_log` function is automatically added to `@grant`.
 
 ## Documentation
 
