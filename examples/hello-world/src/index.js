@@ -1,7 +1,3 @@
-import { enableHMR } from "webpack-monkey/client"
+module.hot?.monkeyReload()
 
 GM_log("Hello, world!")
-
-if (module.hot) {
-  enableHMR(module)
-}

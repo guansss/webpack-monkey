@@ -108,13 +108,14 @@ Note: unless the dev server's _port_ has changed, you don't need to install the 
 This one is optional. Edit `src/index.js` as follows:
 
 ```js
-import { enableHMR } from "webpack-monkey/client"
+module.hot?.monkeyReload()
+
+// or use the following if your environment doesn't support optional chaining
+// if (module.hot) {
+//   module.hot.monkeyReload()
+// }
 
 GM_log("Hello, world!")
-
-if (module.hot) {
-  enableHMR(module)
-}
 ```
 
 If you've already opened the page, you need to reload the page because the HMR functionality is just added and not applied yet.
