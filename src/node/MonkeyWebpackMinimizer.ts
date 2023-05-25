@@ -218,7 +218,12 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
 
         // either if explicitly enabled or if a prettier config is found
         if (explicitlyEnabled || this.prettierConfig) {
-          return prettier.format(code, this.prettierConfig)
+          return prettier.format(code, {
+            ...this.prettierConfig,
+
+            // prettier will use the extension to determine the parser
+            filepath: "foo.js",
+          })
         }
       } catch (e) {
         if (explicitlyEnabled) {
