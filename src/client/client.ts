@@ -1,11 +1,11 @@
 import { compact } from "lodash-es"
 import { urlMatch } from "../shared/utils"
 import { MonkeyInjection, UserscriptInfo } from "../types/userscript"
+import { WebpackModule } from "../types/webpack"
 import { loadCss, miniCssExtractHmr, styleLoaderInsertStyleElement } from "./css"
-import { enableHMR } from "./hmr"
+import "./hmr"
+import { monkeyReload } from "./hmr"
 import { log } from "./log"
-
-enableHMR(module)
 
 interface MonkeyGlobal extends MonkeyInjection {
   inspectRuntime: () => void
@@ -19,6 +19,8 @@ declare global {
 }
 
 console.log("Monkey Client Loaded", __MK_INJECTION__)
+
+monkeyReload(module as unknown as WebpackModule)
 
 declare const __MK_INJECTION__: MonkeyInjection
 

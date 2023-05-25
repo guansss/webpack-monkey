@@ -1,4 +1,4 @@
-import mitt, { Emitter } from "mitt"
+import mitt from "mitt"
 import { overrideValue } from "../shared/patching"
 import { MapValues } from "../types/utils"
 import { WebpackModule, WebpackModuleId } from "../types/webpack"
@@ -13,37 +13,33 @@ type OverrideIds<T extends webpack.HotEvent> = MapValues<
   [number, WebpackModuleId] | [number[], WebpackModuleId[]]
 >
 
-// the definition of webpack.ApplyOptions is wrong, we make a correct one here
-interface ApplyOptions {
-  ignoreUnaccepted?: boolean
-  ignoreDeclined?: boolean
-  ignoreErrored?: boolean
-  onDeclined?(info: webpack.HotEvent): void
-  onUnaccepted?(info: webpack.HotEvent): void
-  onAccepted?(info: webpack.HotEvent): void
-  onDisposed?(info: webpack.HotEvent): void
-  onErrored?(info: webpack.HotEvent): void
-}
-
 type HMREvents = {
   accepted: HotEventOf<"accepted">
 }
 
-let hmrEmitter: Emitter<HMREvents>
-
-export interface EnableHMROptions {
+export interface MonkeyReloadOptions {
   ignore?: (string | RegExp)[]
   filter?(id: WebpackModuleId): boolean
 }
 
-export function enableHMR(_module: NodeModule, { ignore, filter }: EnableHMROptions = {}) {
-  const rootModule = _module as unknown as WebpackModule
+const hmrEmitter = mitt<HMREvents>()
 
-  if (!rootModule.hot) {
-    console.error("HMR is not available")
+;(__webpack_require__ as any).hmrC["webpack-monkey"] = monkeyDownloadUpdateHandler
+;(__webpack_require__ as any).i.push(monkeyModuleInterceptor)
+
+function monkeyModuleInterceptor(options: { module: WebpackModule }) {
+  if (!options?.module?.hot) {
+    console.warn("module.hot is not available")
     return
   }
 
+  options.module.hot.monkeyReload = (opt) => monkeyReload(options.module, opt)
+}
+
+export function monkeyReload(
+  rootModule: WebpackModule,
+  { ignore, filter }: MonkeyReloadOptions = {}
+) {
   if (!ignore) {
     ignore = ["node_modules"]
   }
@@ -61,8 +57,6 @@ export function enableHMR(_module: NodeModule, { ignore, filter }: EnableHMROpti
       })
     }
   }
-
-  setupHMR()
 
   const getModuleFromCache = (id: WebpackModuleId) => require.cache[id] as WebpackModule | undefined
 
@@ -96,38 +90,45 @@ export function enableHMR(_module: NodeModule, { ignore, filter }: EnableHMROpti
   })
 }
 
-function setupHMR() {
-  hmrEmitter ||= mitt<HMREvents>()
-
-  // don't mess up the format, Prettier!
-  ;(__webpack_require__ as any).hmrC["webpack-monkey"] ||= (
-    chunkIds: unknown[],
-    removedChunks: unknown[],
-    removedModules: WebpackModuleId[],
-    promises: Promise<unknown>[],
-    applyHandlers: Function[],
-    updatedModules: WebpackModuleId[]
-  ) => {
-    // insert the handler at the beginning of the array
-    // because we will modify the options
-    applyHandlers.unshift((options: ApplyOptions) => {
-      if (options) {
-        overrideValue(options, "onAccepted", (originalFn) => {
-          return (event) => {
-            if (event.type === "accepted") {
-              hmrEmitter.emit("accepted", event)
-            }
-
-            originalFn?.(event)
-          }
-        })
-      }
-
-      // this return is required
-      return {
-        dispose: () => {},
-        apply: () => {},
-      }
-    })
+function monkeyDownloadUpdateHandler(
+  chunkIds: unknown[],
+  removedChunks: unknown[],
+  removedModules: WebpackModuleId[],
+  promises: Promise<unknown>[],
+  applyHandlers: Function[],
+  updatedModules: WebpackModuleId[]
+) {
+  // the definition of webpack.ApplyOptions is wrong, we make a correct one here
+  interface ApplyOptions {
+    ignoreUnaccepted?: boolean
+    ignoreDeclined?: boolean
+    ignoreErrored?: boolean
+    onDeclined?(info: webpack.HotEvent): void
+    onUnaccepted?(info: webpack.HotEvent): void
+    onAccepted?(info: webpack.HotEvent): void
+    onDisposed?(info: webpack.HotEvent): void
+    onErrored?(info: webpack.HotEvent): void
   }
+
+  // insert the handler at the beginning of the array
+  // because we will modify the options
+  applyHandlers.unshift((options: ApplyOptions) => {
+    if (options) {
+      overrideValue(options, "onAccepted", (originalFn) => {
+        return (event) => {
+          if (event.type === "accepted") {
+            hmrEmitter.emit("accepted", event)
+          }
+
+          originalFn?.(event)
+        }
+      })
+    }
+
+    // this return is required
+    return {
+      dispose: () => {},
+      apply: () => {},
+    }
+  })
 }

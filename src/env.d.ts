@@ -1,2 +1,5 @@
-/// <reference types="webpack/module" />
-/// <reference types="webpack-dev-server" />
+declare namespace webpack {
+  interface Hot {
+    monkeyReload(options?: import("./client/hmr").MonkeyReloadOptions): void
+  }
+}
