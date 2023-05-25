@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`build 1`] = `
+"// ==UserScript==
+// @name     Hello world
+// @grant    GM_log
+// @match    *://*/*
+// @version  1.0.0
+// ==/UserScript==
+
+;(() => {
+  "use strict"
+
+  GM_log("Hello, world!")
+})()
+"
+`;
