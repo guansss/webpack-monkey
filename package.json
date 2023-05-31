@@ -49,16 +49,12 @@
     "webpack": "^5.82.1",
     "webpack-dev-server": "^4.15.0"
   },
-  "optionalDependencies": {
-    "@types/lodash": "^4.14.194",
-    "@types/lodash-es": "^4.17.7",
-    "@types/webpack": "^5.28.1",
-    "type-fest": "^3.10.0",
-    "typescript": "^5.0.4"
-  },
   "devDependencies": {
     "@types/jest": "^29.5.1",
     "@types/jest-environment-puppeteer": "^5.0.3",
+    "@types/lodash": "^4.14.195",
+    "@types/lodash-es": "^4.17.7",
+    "@types/webpack": "^5.28.1",
     "axios": "^1.4.0",
     "cross-env": "^7.0.3",
     "css-loader": "^6.7.3",
@@ -76,6 +72,8 @@
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.2",
     "ts-node": "^10.9.1",
+    "type-fest": "^3.11.1",
+    "typescript": "^5.0.4",
     "webpack-cli": "^5.1.1",
     "webpack-merge": "^5.9.0"
   },
