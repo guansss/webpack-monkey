@@ -9,7 +9,7 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
   return (config: Configuration) => {
     const plugin = new MonkeyWebpackPlugin(options)
 
-    const isServe = process.env.WEBPACK_SERVE === "true"
+    const isServe = options?.serve ?? process.env.WEBPACK_SERVE === "true"
 
     config ??= {}
 

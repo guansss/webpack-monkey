@@ -64,11 +64,9 @@ export interface MonkeyWebpackPluginOptions {
     name?: string
     transform?: (content: string) => string
   }
+  serve?: boolean
   debug?: boolean
 }
-
-const isServe = process.env.WEBPACK_SERVE === "true"
-const isBuild = !isServe
 
 const cdnProviders: Record<CdnProvider, string> = {
   jsdelivr: "https://cdn.jsdelivr.net/npm",
@@ -197,6 +195,8 @@ export class MonkeyWebpackPlugin {
     this.metaLoader = createMetaLoader(options)
     this.metaTransformer = options.meta?.transform
 
+    const isServe = options.serve ?? process.env.WEBPACK_SERVE === "true"
+
     if (isServe) {
       this.receivePort = new Promise((resolve) => {
         let resolved = false
@@ -223,6 +223,9 @@ export class MonkeyWebpackPlugin {
   }
 
   apply(compiler: Compiler) {
+    const isServe = this.options.serve ?? process.env.WEBPACK_SERVE === "true"
+    const isBuild = !isServe
+
     if (isServe) {
       new EntryPlugin(compiler.context, require.resolve("../client/client.ts"), {
         name: "monkey-client",
