@@ -2,14 +2,15 @@
 
 exports[`build 1`] = `
 "// ==UserScript==
-// @name     Hello world
-// @grant    GM_log
+// @name     Hot test
+// @grant    GM_addElement
 // @match    *://*/*
 // @version  1.0.0
 // ==/UserScript==
 
 ;(() => {
-  GM_log("Hello, world!")
+  GM_addElement(document.body, "div", { id: "div1" })
+  __NEXT__((s) => s.replace(\`div1\`, \`div2\`))
 })()
 "
 `;

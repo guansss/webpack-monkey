@@ -1,6 +1,7 @@
 /dist
 /playground/**/dist
 /tests/**/dist
+/tests/extensions/*/
 
 .vscode
 

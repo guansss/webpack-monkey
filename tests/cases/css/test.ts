@@ -10,4 +10,4 @@ const config = withCommonConfig({
   },
 })
 
-it("build", () => testBuild(monkeyWebpack()(config)))
+it("build", () => testBuild(monkeyWebpack({ serve: false })(config)))
