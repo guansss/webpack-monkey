@@ -10,6 +10,7 @@ export interface UserscriptInfo {
 }
 
 export interface MonkeyInjection {
+  origin: string
   userscripts: UserscriptInfo[]
 }
 

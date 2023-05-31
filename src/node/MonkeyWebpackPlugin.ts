@@ -15,7 +15,7 @@ import {
   VAR_MK_INJECTION,
 } from "../shared/constants"
 import { UserscriptMeta } from "../shared/meta"
-import { MonkeyDevInjection, UserscriptInfo } from "../types/userscript"
+import { MonkeyDevInjection, MonkeyInjection, UserscriptInfo } from "../types/userscript"
 import { MaybePromise } from "../types/utils"
 import { colorize } from "./color"
 import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
@@ -425,10 +425,13 @@ export class MonkeyWebpackPlugin {
 
               const runtimeSource = assets[runtimeScript]!
 
+              const monkeyInjection: MonkeyInjection = {
+                origin: origin!,
+                userscripts: qualifiedUserscripts,
+              }
+
               const newRuntimeSource = new ConcatSource(
-                `window.${VAR_MK_INJECTION} = ${JSON.stringify({
-                  userscripts: qualifiedUserscripts,
-                })};\n\n`,
+                `window.${VAR_MK_INJECTION} = ${JSON.stringify(monkeyInjection)};\n\n`,
                 `window.${VAR_MK_GLOBAL}.inspectRuntime = function() { console.log("runtime") };\n\n`,
                 runtimeSource
               )

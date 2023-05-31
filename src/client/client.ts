@@ -6,8 +6,10 @@ import { loadCss, miniCssExtractHmr, styleLoaderInsertStyleElement } from "./css
 import "./hmr"
 import { monkeyReload } from "./hmr"
 import { log } from "./log"
+import { GM_fetch } from "./exports"
 
 interface MonkeyGlobal extends MonkeyInjection {
+  GM_fetch: typeof GM_fetch
   inspectRuntime: () => void
   loadScript: (url: string) => void
   miniCssExtractHmr: (moduleId: string, options: object) => () => void
@@ -26,6 +28,7 @@ declare const __MK_INJECTION__: MonkeyInjection
 
 Object.assign(__MK_GLOBAL__, {
   ...__MK_INJECTION__,
+  GM_fetch,
   miniCssExtractHmr,
   styleLoaderInsertStyleElement,
 } satisfies Omit<MonkeyGlobal, "loadScript" | "inspectRuntime">)
