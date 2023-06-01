@@ -19,17 +19,6 @@ const config = withCommonConfig({
 it("build", () => testBuild(monkeyWebpack({ serve: false })(config)))
 
 it("browser: hot reload", async () => {
-  const config = withCommonConfig({
-    mode: "development",
-    entry: path.resolve(__dirname, "index.js"),
-    output: {
-      path: path.resolve(__dirname, "dist"),
-    },
-    devServer: {
-      port: __PORT__,
-    },
-  })
-
   await usingDevServerHot(
     monkeyWebpack({
       serve: true,
