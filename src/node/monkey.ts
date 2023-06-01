@@ -1,8 +1,8 @@
 import { isNil, isObject } from "lodash"
 import { Configuration } from "webpack"
+import { merge } from "webpack-merge"
 import { MonkeyWebpackMinimizer, MonkeyWebpackMinimizerOptions } from "./MonkeyWebpackMinimizer"
 import { MonkeyWebpackPlugin, MonkeyWebpackPluginOptions } from "./MonkeyWebpackPlugin"
-import { merge } from "webpack-merge"
 
 interface MonkeyWebpackOptions extends MonkeyWebpackPluginOptions, MonkeyWebpackMinimizerOptions {}
 
@@ -16,7 +16,7 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
     const userDefinedPortIsValid = isFinite(userDefinedPortNumber)
 
     if (userDefinedPortIsValid) {
-      plugin.setPort(userDefinedPortNumber)
+      plugin.port.set(userDefinedPortNumber)
     }
 
     type RuntimeChunkValue = NonNullable<Configuration["optimization"]>["runtimeChunk"]
@@ -75,7 +75,9 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
             onListening: (server) => {
               const { port } = server.server!.address() as import("net").AddressInfo
 
-              plugin.setPort(port)
+              if (plugin.port.port === undefined) {
+                plugin.port.set(port)
+              }
             },
           }),
         },

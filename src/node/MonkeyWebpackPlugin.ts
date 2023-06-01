@@ -4,7 +4,6 @@ import ConcatenatedModule from "webpack/lib/optimize/ConcatenatedModule"
 import { access, readFile } from "fs/promises"
 import { castArray, compact, find, isObject, isString, without } from "lodash"
 import path from "path"
-import { Writable } from "type-fest"
 import { Chunk, Compilation, Compiler, EntryPlugin, ExternalModule, sources } from "webpack"
 import { getGMAPIs } from "../shared/GM"
 import {
@@ -17,6 +16,7 @@ import {
 import { UserscriptMeta } from "../shared/meta"
 import { MonkeyDevInjection, MonkeyInjection, UserscriptInfo } from "../types/userscript"
 import { MaybePromise } from "../types/utils"
+import { PortReceiver } from "./PortReceiver"
 import { colorize } from "./color"
 import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
 
@@ -182,8 +182,7 @@ export class MonkeyWebpackPlugin {
   userscripts: Omit<UserscriptInfo, "url">[] = []
   userscriptsLoaded = Promise.resolve()
 
-  receivePort?: Promise<number>
-  readonly setPort = (port: number) => {}
+  port = new PortReceiver()
 
   // assume that we won't call it before ready
   logger!: WebpackLogger
@@ -194,32 +193,6 @@ export class MonkeyWebpackPlugin {
     this.metaResolver = createMetaResolver(options)
     this.metaLoader = createMetaLoader(options)
     this.metaTransformer = options.meta?.transform
-
-    const isServe = options.serve ?? process.env.WEBPACK_SERVE === "true"
-
-    if (isServe) {
-      this.receivePort = new Promise((resolve) => {
-        let resolved = false
-
-        const timer = setTimeout(() => {
-          if (!resolved) {
-            this.logger.warn("Port not received after 10 seconds, assuming 8080.")
-            resolve(8080)
-          }
-        }, 1000 * 10)
-
-        ;(this as Writable<this>).setPort = (port) => {
-          if (resolved) {
-            this.logger.warn("setPort() called multiple times, ignoring.")
-            return
-          }
-
-          resolved = true
-          clearTimeout(timer)
-          resolve(port)
-        }
-      })
-    }
   }
 
   apply(compiler: Compiler) {
@@ -235,6 +208,15 @@ export class MonkeyWebpackPlugin {
       new EntryPlugin(compiler.context, require.resolve("../client/patches.ts"), {
         name: undefined,
       }).apply(compiler)
+
+      this.port.waitOrSetDefault(10_000, () => {
+        this.logger?.warn("Port not received after 10 seconds, assuming 8080.")
+        return 8080
+      })
+
+      compiler.hooks.shutdown.tap(MonkeyWebpackPlugin.name, () => {
+        this.port.cancelWait()
+      })
     }
 
     compiler.resolverFactory.hooks.resolver
@@ -340,9 +322,9 @@ export class MonkeyWebpackPlugin {
         )
 
         if (isServe) {
-          const originReady = this.receivePort!.then(
-            (port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`
-          )
+          const originReady = this.port
+            .get()
+            .then((port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`)
 
           let origin: string | undefined
 
