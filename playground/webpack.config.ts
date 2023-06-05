@@ -13,7 +13,7 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
     absolute: true,
   })
 
-  return monkeyWebpack()({
+  return monkeyWebpack({ debug: true })({
     mode: isServing ? "development" : "production",
     entry: Object.fromEntries(
       entryFiles.map((entryFile) => [path.basename(path.dirname(entryFile)), entryFile])
@@ -26,12 +26,10 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
       }),
     ],
     devServer: {
-      // port: 9526,
+      port: 9526,
     },
     externals: {
-      ...(!isServing && {
-        jquery: "$",
-      }),
+      lodash: "_",
     },
     output: {
       path: path.resolve(__dirname, "dist"),

@@ -46,7 +46,6 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
         output: {
           filename: "[name].user.js",
         },
-        externalsType: "var",
       },
       // ====================================================
       config,
@@ -86,6 +85,13 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
           runtimeChunk: runtimeChunkValue,
           minimizer: [new MonkeyWebpackMinimizer(options)],
         },
+
+        externalsType: "var",
+
+        ...(isServe && {
+          // remove all user-defined externals so that they are available during development
+          externals: [],
+        }),
       }
     )
   }
