@@ -15,7 +15,7 @@ export async function testBuild(config: webpack.Configuration) {
   }
 
   const compiler = webpack(config)
-  const stats = await webpackRun(compiler)
+  const stats = await compilerRun(compiler)
   const files = stats.chunks!.flatMap((chunk) => chunk.files)
 
   expect(files).toHaveLength(1)
@@ -25,7 +25,7 @@ export async function testBuild(config: webpack.Configuration) {
   expect(content).toMatchSnapshot()
 }
 
-export function webpackRun(compiler: webpack.Compiler) {
+export function compilerRun(compiler: webpack.Compiler) {
   return new Promise<webpack.StatsCompilation>((resolve, reject) => {
     compiler.run((err, stats) => {
       if (err) {
@@ -51,18 +51,18 @@ export function webpackRun(compiler: webpack.Compiler) {
         console.warn(info.warnings)
       }
 
-      compiler.close((err) => {
-        if (err) {
-          return reject(err)
-        }
-
-        resolve(info)
-      })
+      compilerClose(compiler).then(() => resolve(info))
     })
   })
 }
 
-export function webpackCompile(compiler: webpack.Compiler) {
+export function compilerClose(compiler: webpack.Compiler) {
+  return new Promise<void>((resolve, reject) => {
+    compiler.close((err) => (err ? reject(err) : resolve()))
+  })
+}
+
+export function compilerCompile(compiler: webpack.Compiler) {
   return new Promise<webpack.Compilation>((resolve, reject) => {
     compiler.compile((err, compilation) => {
       if (err) {
@@ -94,6 +94,7 @@ export async function usingDevServer(
     await fn(server)
   } finally {
     await server.stop().catch(console.warn)
+    await compilerClose(compiler)
   }
 }
 

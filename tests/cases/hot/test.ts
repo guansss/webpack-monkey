@@ -1,4 +1,3 @@
-import "expect-puppeteer"
 import path from "path"
 import { monkeyWebpack } from "../../../src"
 import { DEV_SCRIPT } from "../../../src/shared/constants"
@@ -18,7 +17,7 @@ const config = withCommonConfig({
 
 it("build", () => testBuild(monkeyWebpack()(config)))
 
-it("browser: hot reload", async () => {
+it("hot reload", async () => {
   await usingDevServerHot(monkeyWebpack()(config), async (server) => {
     await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
 
