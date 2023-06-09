@@ -1,4 +1,4 @@
-import { isNil, isObject } from "lodash"
+import { isFunction, isNil, isObject, isPlainObject } from "lodash"
 import { Configuration } from "webpack"
 import { merge } from "webpack-merge"
 import { MonkeyWebpackMinimizer, MonkeyWebpackMinimizerOptions } from "./MonkeyWebpackMinimizer"
@@ -10,26 +10,22 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
   return (config: Configuration) => {
     const plugin = new MonkeyWebpackPlugin(options)
 
-    const isServe = options?.serve ?? process.env.WEBPACK_SERVE === "true"
+    const userDefinedRuntimeChunk = config?.optimization?.runtimeChunk
 
-    const userDefinedPortNumber = Number(config?.devServer?.port)
-    const userDefinedPortIsValid = isFinite(userDefinedPortNumber)
-
-    if (userDefinedPortIsValid) {
-      plugin.port.set(userDefinedPortNumber)
+    if (!isNil(userDefinedRuntimeChunk)) {
+      console.warn(
+        `MonkeyWebpackPlugin: the value of "optimization.runtimeChunk" will be ignored. It will be overwritten to "single" when serving, and "false" when building.`
+      )
     }
 
-    type RuntimeChunkValue = NonNullable<Configuration["optimization"]>["runtimeChunk"]
-    const runtimeChunkValue: RuntimeChunkValue = isServe ? "single" : false
-    const userDefinedRuntimeChunkValue = config?.optimization?.runtimeChunk
+    const userDefinedExternals = config?.externals
 
     if (
-      !isNil(userDefinedRuntimeChunkValue) &&
-      userDefinedRuntimeChunkValue !== runtimeChunkValue
+      !isNil(userDefinedExternals) &&
+      !isPlainObject(userDefinedExternals) &&
+      !isFunction(userDefinedExternals)
     ) {
-      console.warn(
-        `MonkeyWebpackPlugin: "optimization.runtimeChunk" is set to "${userDefinedRuntimeChunkValue}", which does not match the required value "${runtimeChunkValue}". Overriding it to "${runtimeChunkValue}".`
-      )
+      throw new Error(`MonkeyWebpackPlugin: "externals" must be an object or a function.`)
     }
 
     let devClient = config?.devServer?.client
@@ -70,27 +66,24 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
             },
           },
 
-          ...(!userDefinedPortIsValid && {
-            onListening: (server) => {
-              const { port } = server.server!.address() as import("net").AddressInfo
-
-              if (plugin.port.port === undefined) {
-                plugin.port.set(port)
-              }
-            },
-          }),
+          onListening: (server) => {
+            plugin["setupServeMode"](server)
+          },
         },
 
         optimization: {
-          runtimeChunk: runtimeChunkValue,
+          runtimeChunk: {
+            name: () => plugin.getRuntimeName(),
+          },
           minimizer: [new MonkeyWebpackMinimizer(options)],
         },
 
         externalsType: "var",
 
-        ...(isServe && {
-          // remove all user-defined externals so that they are available during development
-          externals: [],
+        ...(!isNil(userDefinedExternals) && {
+          externals: (data, callback) => {
+            return plugin.resolveExternals(data, callback, userDefinedExternals as any)
+          },
         }),
       }
     )

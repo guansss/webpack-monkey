@@ -2,9 +2,20 @@
 import ConcatenatedModule from "webpack/lib/optimize/ConcatenatedModule"
 
 import { access, readFile } from "fs/promises"
-import { castArray, compact, find, isObject, isString, without } from "lodash"
+import { castArray, compact, find, isFunction, isObject, isString, without } from "lodash"
 import path from "path"
-import { Chunk, Compilation, Compiler, EntryPlugin, ExternalModule, sources } from "webpack"
+import {
+  Chunk,
+  Compilation,
+  Compiler,
+  Configuration,
+  EntryPlugin,
+  ExternalItemFunctionData,
+  ExternalItemValue,
+  ExternalModule,
+  sources,
+} from "webpack"
+import type WebpackDevServer from "webpack-dev-server"
 import { getGMAPIs } from "../shared/GM"
 import {
   CLIENT_SCRIPT,
@@ -15,8 +26,7 @@ import {
 } from "../shared/constants"
 import { UserscriptMeta } from "../shared/meta"
 import { MonkeyDevInjection, MonkeyInjection, UserscriptInfo } from "../types/userscript"
-import { MaybePromise } from "../types/utils"
-import { PortReceiver } from "./PortReceiver"
+import { ExtractFunction, MaybePromise } from "../types/utils"
 import { colorize } from "./color"
 import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
 
@@ -64,8 +74,13 @@ export interface MonkeyWebpackPluginOptions {
     name?: string
     transform?: (content: string) => string
   }
-  serve?: boolean
   debug?: boolean
+}
+
+export interface ServerInfo {
+  host: string
+  port: number
+  origin: string
 }
 
 const cdnProviders: Record<CdnProvider, string> = {
@@ -179,6 +194,8 @@ const externalAssets = {
 } as const
 
 export class MonkeyWebpackPlugin {
+  compiler?: Compiler
+
   options: MonkeyWebpackPluginOptions
   requireResolver: RequireResolver
   metaResolver: MetaResolver
@@ -188,10 +205,11 @@ export class MonkeyWebpackPlugin {
   userscripts: Omit<UserscriptInfo, "url">[] = []
   userscriptsLoaded = Promise.resolve()
 
-  port = new PortReceiver()
+  serveMode = false
+  serverInfo?: ServerInfo
 
-  // assume that we won't call it before ready
-  logger!: WebpackLogger
+  logger: WebpackLogger | typeof console = console
+  infraLogger: WebpackLogger | typeof console = console
 
   constructor(options: MonkeyWebpackPluginOptions = {}) {
     this.options = options
@@ -201,29 +219,49 @@ export class MonkeyWebpackPlugin {
     this.metaTransformer = options.meta?.transform
   }
 
-  apply(compiler: Compiler) {
-    const isServe = this.options.serve ?? process.env.WEBPACK_SERVE === "true"
-    const isBuild = !isServe
+  private setupServeMode(server: WebpackDevServer) {
+    const compiler = this.compiler
 
-    if (isServe) {
-      new EntryPlugin(compiler.context, externalAssets.clientEntry, {
-        name: "monkey-client",
-        filename: CLIENT_SCRIPT,
-      }).apply(compiler)
-
-      new EntryPlugin(compiler.context, externalAssets.patchesEntry, {
-        name: undefined,
-      }).apply(compiler)
-
-      this.port.waitOrSetDefault(10_000, () => {
-        this.logger?.warn("Port not received after 10 seconds, assuming 8080.")
-        return 8080
-      })
-
-      compiler.hooks.shutdown.tap(MonkeyWebpackPlugin.name, () => {
-        this.port.cancelWait()
-      })
+    if (!compiler) {
+      this.infraLogger.warn("Compiler not set up, cannot setup serving.")
+      return
     }
+
+    this.serveMode = true
+
+    const { port } = server.server!.address() as import("net").AddressInfo
+    const host = server.options.host || "localhost"
+
+    this.serverInfo = {
+      host,
+      port,
+      origin: `http://${host}:${port}`,
+    }
+
+    new EntryPlugin(compiler.context, externalAssets.clientEntry, {
+      name: "monkey-client",
+      filename: CLIENT_SCRIPT,
+    }).apply(compiler)
+
+    new EntryPlugin(compiler.context, externalAssets.patchesEntry, {
+      // make it a global entry
+      name: undefined,
+    }).apply(compiler)
+
+    // re-run the compilation to apply the setup changes
+    server.invalidate()
+
+    this.infraLogger.info(
+      `[webpack-monkey] Start your development by installing the dev script: ${colorize(
+        "cyan",
+        `http://${this.serverInfo.host}:${this.serverInfo.port}/${DEV_SCRIPT}`
+      )}`
+    )
+  }
+
+  apply(compiler: Compiler) {
+    this.compiler = compiler
+    this.infraLogger = compiler.getInfrastructureLogger(MonkeyWebpackPlugin.name)
 
     compiler.resolverFactory.hooks.resolver
       .for("normal")
@@ -265,10 +303,10 @@ export class MonkeyWebpackPlugin {
           return undefined
         })
 
-        function findOneOrNoneJsFile(chunk: Chunk) {
+        const findOneOrNoneJsFile = (chunk: Chunk) => {
           const jsFiles = Array.from(chunk.files).filter((file) => file.endsWith(".js"))
 
-          if (isBuild && jsFiles.length > 1) {
+          if (!this.serveMode && jsFiles.length > 1) {
             throw new Error(`multiple js files in chunk ${chunk.name}:\n- ${jsFiles.join("\n- ")}`)
           }
 
@@ -327,32 +365,9 @@ export class MonkeyWebpackPlugin {
           }
         )
 
-        if (isServe) {
-          const originReady = this.port
-            .get()
-            .then((port) => `http://${compiler.options.devServer?.host || "localhost"}:${port}`)
-
-          let origin: string | undefined
-
-          originReady.then((o) => (origin = o))
-
-          const getAssetUrl = (asset: string) => {
-            if (!origin) {
-              throw new Error("origin not set")
-            }
-
-            return `${origin}/${asset}`
-          }
-
-          originReady.then(() => {
-            const url = getAssetUrl(DEV_SCRIPT)
-            this.logger.info(
-              `[webpack-monkey] Start your development by installing the dev script: ${colorize(
-                "cyan",
-                url
-              )}`
-            )
-          })
+        if (this.serveMode) {
+          const { origin } = this.serverInfo!
+          const assetUrl = (asset: string) => `${origin}/${asset}`
 
           compilation.hooks.processAssets.tapPromise(
             {
@@ -361,7 +376,6 @@ export class MonkeyWebpackPlugin {
             },
             async (assets) => {
               await this.userscriptsLoaded
-              await originReady
 
               const qualifiedUserscripts: UserscriptInfo[] = []
 
@@ -394,11 +408,11 @@ export class MonkeyWebpackPlugin {
                 if (file && assets[file]) {
                   qualifiedUserscripts.push({
                     ...userscript,
-                    url: getAssetUrl(file),
+                    url: assetUrl(file),
 
                     // when using mini-css-extract-plugin, the CSS is extracted into a separate file,
                     // we provide their URLs to the client script
-                    assets: without(Array.from(chunk.files), file).map(getAssetUrl),
+                    assets: without(Array.from(chunk.files), file).map(assetUrl),
                   })
                 } else {
                   this.logger.warn("URL not found for userscript:", name)
@@ -429,8 +443,8 @@ export class MonkeyWebpackPlugin {
               let content = await readFile(externalAssets.devScript, "utf-8")
 
               const devInjection: MonkeyDevInjection = {
-                clientScript: getAssetUrl(CLIENT_SCRIPT),
-                runtimeScript: getAssetUrl(runtimeScript),
+                clientScript: assetUrl(CLIENT_SCRIPT),
+                runtimeScript: assetUrl(runtimeScript),
               }
 
               content =
@@ -469,7 +483,7 @@ export class MonkeyWebpackPlugin {
           )
         }
 
-        if (isBuild) {
+        if (!this.serveMode) {
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,
@@ -585,5 +599,39 @@ export class MonkeyWebpackPlugin {
         }
       }
     )
+  }
+
+  getRuntimeName() {
+    // this is equivalent to:
+    // `optimization.runtimeChunk = "single"` in serve mode
+    // `optimization.runtimeChunk = false` in build mode
+    return this.serveMode ? "runtime" : undefined
+  }
+
+  resolveExternals(
+    data: ExternalItemFunctionData,
+    callback: (err?: Error, result?: ExternalItemValue) => void,
+    userDefinedExternals:
+      | Record<string, ExternalItemValue>
+      | ExtractFunction<Configuration["externals"]>
+  ): void {
+    // disable externals in serve mode
+    if (this.serveMode) {
+      return callback()
+    }
+
+    if (isFunction(userDefinedExternals)) {
+      const maybePromise = userDefinedExternals(data, callback)
+      maybePromise?.then((result) => callback(undefined, result), callback)
+      return
+    }
+
+    const { request } = data
+
+    if (request && Object.prototype.hasOwnProperty.call(userDefinedExternals, request)) {
+      return callback(undefined, userDefinedExternals[request])
+    }
+
+    return callback()
   }
 }

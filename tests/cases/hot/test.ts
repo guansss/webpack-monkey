@@ -16,21 +16,16 @@ const config = withCommonConfig({
   },
 })
 
-it("build", () => testBuild(monkeyWebpack({ serve: false })(config)))
+it("build", () => testBuild(monkeyWebpack()(config)))
 
 it("browser: hot reload", async () => {
-  await usingDevServerHot(
-    monkeyWebpack({
-      serve: true,
-    })(config),
-    async (server) => {
-      await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
+  await usingDevServerHot(monkeyWebpack()(config), async (server) => {
+    await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
 
-      await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)
+    await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)
 
-      await page.waitForSelector("#div1")
-      await page.waitForSelector("#div2")
-      expect(await page.$("#div1")).toBe(null)
-    }
-  )
+    await page.waitForSelector("#div1")
+    await page.waitForSelector("#div2")
+    expect(await page.$("#div1")).toBe(null)
+  })
 }, 30_000)
