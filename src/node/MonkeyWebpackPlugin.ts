@@ -172,6 +172,12 @@ function createMetaLoader({ meta: { loader } = {} }: MonkeyWebpackPluginOptions)
   }
 }
 
+const externalAssets = {
+  clientEntry: require.resolve("../client/client"),
+  patchesEntry: require.resolve("../client/patches"),
+  devScript: require.resolve("../dev.user.js"),
+} as const
+
 export class MonkeyWebpackPlugin {
   options: MonkeyWebpackPluginOptions
   requireResolver: RequireResolver
@@ -200,12 +206,12 @@ export class MonkeyWebpackPlugin {
     const isBuild = !isServe
 
     if (isServe) {
-      new EntryPlugin(compiler.context, require.resolve("../client/client.ts"), {
+      new EntryPlugin(compiler.context, externalAssets.clientEntry, {
         name: "monkey-client",
         filename: CLIENT_SCRIPT,
       }).apply(compiler)
 
-      new EntryPlugin(compiler.context, require.resolve("../client/patches.ts"), {
+      new EntryPlugin(compiler.context, externalAssets.patchesEntry, {
         name: undefined,
       }).apply(compiler)
 
@@ -420,7 +426,7 @@ export class MonkeyWebpackPlugin {
 
               compilation.updateAsset(runtimeScript, newRuntimeSource)
 
-              let content = await readFile(path.resolve(__dirname, "../dev.user.js"), "utf-8")
+              let content = await readFile(externalAssets.devScript, "utf-8")
 
               const devInjection: MonkeyDevInjection = {
                 clientScript: getAssetUrl(CLIENT_SCRIPT),
