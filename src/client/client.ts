@@ -2,11 +2,11 @@ import { compact } from "lodash-es"
 import { urlMatch } from "../shared/utils"
 import { MonkeyInjection, UserscriptInfo } from "../types/userscript"
 import { WebpackModule } from "../types/webpack"
+import { GM_fetch } from "./counterfeits/fetch"
 import { loadCss, miniCssExtractHmr, styleLoaderInsertStyleElement } from "./css"
 import "./hmr"
 import { monkeyReload } from "./hmr"
 import { log } from "./log"
-import { GM_fetch } from "./exports"
 
 interface MonkeyGlobal extends MonkeyInjection {
   GM_fetch: typeof GM_fetch
