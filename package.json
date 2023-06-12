@@ -14,7 +14,7 @@
     "update-example": "npm run pack && cd .. && npm install ./dist/webpack-monkey-0.1.0.tgz -w @example/hello-world",
     "test": "jest --runInBand",
     "test:u": "npm run test -- --updateSnapshot",
-    "test:b": "cross-env HEADLESS=false npm run test -- --testNamePattern=\"^browser\""
+    "test:h": "cross-env HEADLESS=false npm run test"
   },
   "exports": {
     ".": {
@@ -64,6 +64,7 @@
     "dotenv": "^16.0.3",
     "glob": "^10.2.4",
     "jest": "^29.5.0",
+    "jest-extended": "^4.0.0",
     "jest-puppeteer": "^9.0.0",
     "jszip": "^3.10.1",
     "mini-css-extract-plugin": "^2.7.5",

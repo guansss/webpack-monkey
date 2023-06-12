@@ -9,8 +9,15 @@ exports[`build 1`] = `
 // ==/UserScript==
 
 ;(() => {
-  GM_addElement(document.body, "div", { id: "div1" })
-  __NEXT__((s) => s.replace(\`div1\`, \`div2\`))
+  "use strict"
+
+  GM_addElement(document.body, "div", { class: "depA1" })
+
+  GM_addElement(document.body, "div", { class: "depC1" })
+
+  GM_addElement(document.body, "div", { class: "depB1" })
+
+  GM_addElement(document.body, "div", { class: "index1" })
 })()
 "
 `;

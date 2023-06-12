@@ -5,6 +5,8 @@
 
 require("dotenv").config()
 
+const timeoutScale = process.env.CI ? 5 : 1
+
 module.exports = {
   // All imported modules in your tests should be mocked automatically
   // automock: false,
@@ -68,11 +70,9 @@ module.exports = {
 
   // A set of global variables that need to be available in all test environments
   globals: {
-    __PORT__:
-      parseInt(process.env.TEST_PORT) ||
-      (() => {
-        throw new Error("TEST_PORT is not defined in environment variables")
-      })(),
+    __PORT__: parseInt(process.env.TEST_PORT),
+    __BROWSER_SUITE_TIMEOUT__: parseInt(process.env.TEST_BROWSER_SUITE_TIMEOUT) * timeoutScale,
+    __PUPPETEER_TIMEOUT__: parseInt(process.env.TEST_PUPPETEER_TIMEOUT) * timeoutScale,
   },
 
   // The maximum amount of workers used to run your tests. Can be specified as % or a number. E.g. maxWorkers: 10% will use 10% of your CPU amount + 1 as the maximum worker number. maxWorkers: 2 will use a maximum of 2 workers.
@@ -146,7 +146,9 @@ module.exports = {
   // setupFiles: [],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  // setupFilesAfterEnv: [],
+  setupFilesAfterEnv: [
+    "<rootDir>/tests/jest-setup-after-env.ts",
+  ],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
   // slowTestThreshold: 5,

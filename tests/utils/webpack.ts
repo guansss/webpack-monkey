@@ -51,7 +51,9 @@ export function compilerRun(compiler: webpack.Compiler) {
         console.warn(info.warnings)
       }
 
-      compilerClose(compiler).then(() => resolve(info))
+      compilerClose(compiler)
+        .then(() => resolve(info))
+        .catch(reject)
     })
   })
 }
@@ -100,11 +102,10 @@ export async function usingDevServer(
 
 export async function usingDevServerHot(
   config: webpack.Configuration,
-  fn: (server: WebpackDevServer) => Promise<void>
+  fn: (server: WebpackDevServer, replacers: FakeLoaderOptions["replacers"]) => Promise<void>
 ) {
   const fakeLoaderOptions: FakeLoaderOptions = {
-    updateIndex: 0,
-    invalidateUrlPath: "/mk_invalidate",
+    replacers: {},
   }
 
   config = merge({}, config, {
@@ -114,13 +115,7 @@ export async function usingDevServerHot(
   })
 
   return usingDevServer(config, (server) => {
-    server.app!.get(fakeLoaderOptions.invalidateUrlPath, (req, res) => {
-      fakeLoaderOptions.updateIndex++
-      server.invalidate()
-      res.end()
-    })
-
-    return fn(server)
+    return fn(server, fakeLoaderOptions.replacers)
   })
 }
 
