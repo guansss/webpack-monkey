@@ -65,8 +65,16 @@ export function monkeyReload(
       return
     }
 
+    const visited = new Set<WebpackModule>()
+
     const collectDescendantsToAffected = (mod?: WebpackModule) => {
       if (mod) {
+        if (visited.has(mod)) {
+          return
+        }
+
+        visited.add(mod)
+
         const alreadyIncluded = outdatedModules.includes(mod.id)
 
         if (!alreadyIncluded && filter!(mod.id)) {
