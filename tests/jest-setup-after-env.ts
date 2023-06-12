@@ -2,6 +2,18 @@ import * as matchers from "jest-extended"
 
 expect.extend(matchers)
 
+declare global {
+  namespace jest {
+    interface It {
+      /**
+       * When the test fails in headful mode, the Puppeteer browser will keep open until
+       * you close it manually. This is useful for debugging.
+       */
+      browser: It
+    }
+  }
+}
+
 it.browser = wrapIt(it)
 it.browser.only = wrapIt(it.only)
 it.browser.skip = wrapIt(it.skip)

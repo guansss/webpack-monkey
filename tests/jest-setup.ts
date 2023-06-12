@@ -3,9 +3,7 @@ import type { Browser } from "puppeteer"
 import { setupPuppeteerGlobals } from "./utils/pptr-globals"
 
 declare global {
-  module globalThis {
-    var __jestPptr: { browsers: Browser[] }
-  }
+  var __jestPptr: { browsers: Browser[] }
 }
 
 let processed = false
