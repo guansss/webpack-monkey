@@ -21,12 +21,11 @@ import {
   CLIENT_SCRIPT,
   DEV_SCRIPT,
   VAR_MK_DEV_INJECTION,
-  VAR_MK_GLOBAL,
   VAR_MK_INJECTION,
 } from "../shared/constants"
 import { UserscriptMeta } from "../shared/meta"
 import { MonkeyDevInjection, MonkeyInjection, UserscriptInfo } from "../types/userscript"
-import { ExtractFunction, MaybePromise } from "../types/utils"
+import { ExtractFunction, LiteralUnion, MaybePromise } from "../types/utils"
 import { colorize } from "./color"
 import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
 
@@ -72,6 +71,7 @@ export interface MonkeyWebpackPluginOptions {
   }
   devScript?: {
     name?: string
+    match?: string[] | LiteralUnion<"exact">
     transform?: (content: string) => string
   }
   debug?: boolean
@@ -210,6 +210,8 @@ export class MonkeyWebpackPlugin {
 
   logger: WebpackLogger | typeof console = console
   infraLogger: WebpackLogger | typeof console = console
+
+  fileCache = new Map<string, Promise<string>>()
 
   constructor(options: MonkeyWebpackPluginOptions = {}) {
     this.options = options
@@ -440,45 +442,12 @@ export class MonkeyWebpackPlugin {
 
               compilation.updateAsset(runtimeScript, newRuntimeSource)
 
-              let content = await readFile(externalAssets.devScript, "utf-8")
+              const devScriptContent = await this.generateDevScript({
+                runtimeScript,
+                projectPackageJson,
+              })
 
-              const devInjection: MonkeyDevInjection = {
-                clientScript: assetUrl(CLIENT_SCRIPT),
-                runtimeScript: assetUrl(runtimeScript),
-              }
-
-              content =
-                `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify(devInjection)};\n\n` + content
-
-              let devScriptName = this.options.devScript?.name
-
-              if (!devScriptName) {
-                const projectName = ((await projectPackageJson) as any)?.data?.name
-
-                devScriptName = `[Dev] ${projectName || "untitled project"}`
-              }
-
-              content =
-                generateMetaBlock("", {
-                  name: devScriptName,
-                  version: "1.0.0",
-                  // TODO: change to *://*/*
-                  match: ["*://127.0.0.1/*", "*://localhost/*"],
-
-                  // put everything in these fields because we don't know what the userscripts will do
-                  connect: "*",
-                  grant: getGMAPIs(),
-                }) +
-                "\n\n" +
-                content
-
-              if (this.options.devScript?.transform) {
-                content = this.options.devScript.transform(content)
-              }
-
-              const source = new RawSource(content)
-
-              compilation.emitAsset(DEV_SCRIPT, source)
+              compilation.emitAsset(DEV_SCRIPT, new RawSource(devScriptContent))
             }
           )
         }
@@ -601,6 +570,58 @@ export class MonkeyWebpackPlugin {
     )
   }
 
+  async generateDevScript({
+    runtimeScript,
+    projectPackageJson,
+  }: {
+    runtimeScript: string
+    projectPackageJson?: any
+  }) {
+    if (!this.serverInfo) {
+      throw new Error("missing serverInfo")
+    }
+
+    let { name, match, transform } = this.options.devScript || {}
+
+    if (!name) {
+      name = `[Dev] ${projectPackageJson?.name || "untitled project"}`
+    }
+
+    if (!match) {
+      match = "*://*/*"
+    } else if (match === "exact") {
+      match = this.userscripts.flatMap((u) => u.meta.match || [])
+    }
+
+    let content = await this.readFile(externalAssets.devScript)
+
+    const devInjection: MonkeyDevInjection = {
+      clientScript: `${this.serverInfo.origin}/${CLIENT_SCRIPT}`,
+      runtimeScript: `${this.serverInfo.origin}/${runtimeScript}`,
+    }
+
+    content = `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify(devInjection)};\n\n` + content
+
+    content =
+      generateMetaBlock("", {
+        name: name,
+        version: "1.0.0",
+        match: match,
+
+        // put everything in these fields because we don't know what the userscripts will do
+        connect: "*",
+        grant: getGMAPIs(),
+      }) +
+      "\n\n" +
+      content
+
+    if (transform) {
+      content = transform(content)
+    }
+
+    return content
+  }
+
   getRuntimeName() {
     // this is equivalent to:
     // `optimization.runtimeChunk = "single"` in serve mode
@@ -633,5 +654,15 @@ export class MonkeyWebpackPlugin {
     }
 
     return callback()
+  }
+
+  private readFile(file: string) {
+    if (this.fileCache.has(file)) {
+      return this.fileCache.get(file)
+    }
+
+    const promise = readFile(file, "utf-8")
+    this.fileCache.set(file, promise)
+    return promise
   }
 }
