@@ -10,8 +10,7 @@ import { log } from "./log"
 
 interface MonkeyGlobal extends MonkeyInjection {
   GM_fetch: typeof GM_fetch
-  inspectRuntime: () => void
-  loadScript: (url: string) => void
+  loadScript: (url: string) => Promise<unknown>
   miniCssExtractHmr: (moduleId: string, options: object) => () => void
   styleLoaderInsertStyleElement: (options: object) => HTMLStyleElement
 }
@@ -20,26 +19,25 @@ declare global {
   var __MK_GLOBAL__: MonkeyGlobal
 }
 
-console.log("Monkey Client Loaded", __MK_INJECTION__)
-
 monkeyReload(module as unknown as WebpackModule)
 
 declare const __MK_INJECTION__: MonkeyInjection
 
-Object.assign(__MK_GLOBAL__, {
+window.__MK_GLOBAL__ = {
   ...__MK_INJECTION__,
   GM_fetch,
+  loadScript,
   miniCssExtractHmr,
   styleLoaderInsertStyleElement,
-} satisfies Omit<MonkeyGlobal, "loadScript" | "inspectRuntime">)
+}
 
 const { userscripts } = __MK_GLOBAL__
 
 const loadedScripts: UserscriptInfo[] = (module.hot?.data as any)?.loadedScripts || []
 
-userscripts.filter(matchScript).forEach(loadScript)
+userscripts.filter(matchUserscript).forEach(loadUserscript)
 
-function matchScript({ name, meta }: UserscriptInfo) {
+export function matchUserscript({ name, meta }: UserscriptInfo) {
   const pageUrl = location.href
 
   try {
@@ -59,23 +57,30 @@ function matchScript({ name, meta }: UserscriptInfo) {
   return false
 }
 
-function loadScript(script: UserscriptInfo) {
+export async function loadUserscript(script: UserscriptInfo) {
   if (loadedScripts.find(({ name }) => name === script.name)) {
     return
   }
 
   log("Loading script:", script.name)
 
+  await Promise.all([
+    loadScript(script.url),
+
+    // when using mini-css-extract-plugin, we need to manually load css files
+    ...script.assets.map((asset) => {
+      if (asset.endsWith(".css")) {
+        return loadCss(asset)
+      }
+    }),
+  ])
+
   loadedScripts.push(script)
+}
 
-  __MK_GLOBAL__.loadScript(script.url)
-
-  // when using mini-css-extract-plugin, we need to manually load css files
-  for (const asset of script.assets) {
-    if (asset.endsWith(".css")) {
-      loadCss(asset)
-    }
-  }
+export async function loadScript(url: string) {
+  const content = await GM_fetch(url).then((res) => res.text())
+  return eval(content)
 }
 
 module.hot?.dispose((data: any) => {

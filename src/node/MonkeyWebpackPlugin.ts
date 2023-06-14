@@ -433,8 +433,8 @@ export class MonkeyWebpackPlugin {
               }
 
               const newRuntimeSource = new ConcatSource(
+                this.options.debug ? `console.log("runtime");\n\n` : "",
                 `window.${VAR_MK_INJECTION} = ${JSON.stringify(monkeyInjection)};\n\n`,
-                `window.${VAR_MK_GLOBAL}.inspectRuntime = function() { console.log("runtime") };\n\n`,
                 runtimeSource
               )
 
