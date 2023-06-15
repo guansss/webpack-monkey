@@ -444,7 +444,7 @@ export class MonkeyWebpackPlugin {
 
               const devScriptContent = await this.generateDevScript({
                 runtimeScript,
-                projectPackageJson,
+                projectPackageJson: (await projectPackageJson)?.data,
               })
 
               compilation.emitAsset(DEV_SCRIPT, new RawSource(devScriptContent))
