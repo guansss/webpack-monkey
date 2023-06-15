@@ -20,6 +20,7 @@ import { getGMAPIs } from "../shared/GM"
 import {
   CLIENT_SCRIPT,
   DEV_SCRIPT,
+  DEV_SCRIPT_VERSION,
   VAR_MK_DEV_INJECTION,
   VAR_MK_INJECTION,
 } from "../shared/constants"
@@ -596,17 +597,17 @@ export class MonkeyWebpackPlugin {
     let content = await this.readFile(externalAssets.devScript)
 
     const devInjection: MonkeyDevInjection = {
-      clientScript: `${this.serverInfo.origin}/${CLIENT_SCRIPT}`,
-      runtimeScript: `${this.serverInfo.origin}/${runtimeScript}`,
+      clientScript: `${this.serverInfo.origin}/${CLIENT_SCRIPT}?v=${DEV_SCRIPT_VERSION}`,
+      runtimeScript: `${this.serverInfo.origin}/${runtimeScript}?v=${DEV_SCRIPT_VERSION}`,
     }
 
     content = `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify(devInjection)};\n\n` + content
 
     content =
       generateMetaBlock("", {
-        name: name,
-        version: "1.0.0",
-        match: match,
+        name,
+        version: DEV_SCRIPT_VERSION,
+        match,
 
         // put everything in these fields because we don't know what the userscripts will do
         connect: "*",
