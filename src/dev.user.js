@@ -17,7 +17,9 @@
       const fail = (...args) => {
         reject(
           new Error(
-            `failed to load script (${url}), please check if the server is running. Details: ${args}`
+            `failed to load script (${url}), please check if the server is running. Details: ${JSON.stringify(
+              args
+            )}`
           )
         )
       }
