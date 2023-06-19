@@ -119,12 +119,11 @@ export async function usingDevServerHot(
   })
 }
 
-export function withCommonConfig(config: webpack.Configuration) {
-  return merge({}, defaultWebpackConfig, config)
+export function withCommonConfig(...config: webpack.Configuration[]) {
+  return merge({}, defaultWebpackConfig, ...config)
 }
 
 const defaultWebpackConfig: webpack.Configuration = {
-  plugins: [new MiniCssExtractPlugin()],
   resolve: {
     extensions: [".ts", ".js"],
     alias: {
@@ -147,29 +146,6 @@ const defaultWebpackConfig: webpack.Configuration = {
           },
         },
       },
-      {
-        test: /\.css$/i,
-        use: [
-          MiniCssExtractPlugin.loader,
-          {
-            loader: "css-loader",
-            options: {
-              modules: {
-                auto: true,
-                localIdentName: "[name]__[local]--[hash:base64:4]",
-              },
-            },
-          },
-          {
-            loader: "postcss-loader",
-            options: {
-              postcssOptions: {
-                plugins: [postcssPresetEnv()],
-              },
-            },
-          },
-        ],
-      },
     ],
   },
   output: {
@@ -178,4 +154,56 @@ const defaultWebpackConfig: webpack.Configuration = {
   devtool: false,
   watch: false,
   stats: "errors-warnings",
+}
+
+const commonCssRule = {
+  test: /\.css$/i,
+  use: [
+    {
+      loader: "css-loader",
+      options: {
+        modules: {
+          auto: true,
+          localIdentName: "[name]__[local]--[hash:base64:4]",
+        },
+      },
+    },
+    {
+      loader: "postcss-loader",
+      options: {
+        postcssOptions: {
+          plugins: [postcssPresetEnv()],
+        },
+      },
+    },
+  ],
+}
+
+export function withMiniCssExtract(config?: webpack.Configuration): webpack.Configuration {
+  const overrides = {
+    plugins: [new MiniCssExtractPlugin()],
+    module: {
+      rules: [
+        {
+          ...commonCssRule,
+          use: [MiniCssExtractPlugin.loader, ...commonCssRule.use],
+        },
+      ],
+    },
+  }
+  return config ? merge({}, config, overrides) : overrides
+}
+
+export function withStyleLoader(config?: webpack.Configuration): webpack.Configuration {
+  const overrides = {
+    module: {
+      rules: [
+        {
+          ...commonCssRule,
+          use: ["style-loader", ...commonCssRule.use],
+        },
+      ],
+    },
+  }
+  return config ? merge({}, config, overrides) : overrides
 }

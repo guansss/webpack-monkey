@@ -71,7 +71,7 @@ module.exports = {
   // A set of global variables that need to be available in all test environments
   globals: {
     __PORT__: parseInt(process.env.TEST_PORT),
-    __BROWSER_SUITE_TIMEOUT__: parseInt(process.env.TEST_BROWSER_SUITE_TIMEOUT) * timeoutScale,
+    __BROWSER_CASE_TIMEOUT__: parseInt(process.env.TEST_BROWSER_CASE_TIMEOUT) * timeoutScale,
     __PUPPETEER_TIMEOUT__: parseInt(process.env.TEST_PUPPETEER_TIMEOUT) * timeoutScale,
   },
 

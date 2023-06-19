@@ -1,4 +1,4 @@
-import { Browser, Page } from "puppeteer"
+import { Browser, Page, Target } from "puppeteer"
 
 export async function installWithTampermonkey(browser: Browser, page: Page, scriptUrl: string) {
   try {
@@ -20,24 +20,29 @@ export async function installWithTampermonkey(browser: Browser, page: Page, scri
 
   await new Promise((resolve) => installerPage.once("close", resolve))
 
-  browser
-    .waitForTarget((target) => /extension:.+ask\.html/.test(target.url()))
-    .then(async (askTarget) => {
-      const askPage = (await askTarget.page())!
+  if (!(browser as any).__tmListened) {
+    ;(browser as any).__tmListened = true
 
-      askPage.once("domcontentloaded", async () => {
-        try {
-          const isConfirmPage = !!(await askPage.$(`[data-btn-id="skip_timeout_button"]`))
+    browser.on("targetcreated", async (target: Target) => {
+      if (!/extension:.+ask\.html/.test(target.url())) {
+        return
+      }
 
-          if (isConfirmPage) {
-            await askPage.click(`.ask_action_buttons .fa-thumbs-up`)
-          }
-        } catch (e) {
-          console.warn(`Error confirming: ${e}`)
-        }
-      })
+      const askPage = (await target.page())!
+
+      try {
+        await askPage.waitForSelector(`[data-btn-id="skip_timeout_button"]`)
+      } catch (ignored) {
+        return
+      }
+
+      try {
+        await askPage.$eval(`.ask_action_buttons button .fa-thumbs-up`, (el) => {
+          el.parentElement!.click()
+        })
+      } catch (e) {
+        console.error(`Error confirming: ${e}`)
+      }
     })
-    .catch((ignored) => {
-      console.error(ignored)
-    })
+  }
 }

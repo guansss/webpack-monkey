@@ -3,6 +3,7 @@
 exports[`build 1`] = `
 "// ==UserScript==
 // @name     Hot test
+// @grant    GM_addStyle
 // @grant    GM_addElement
 // @match    *://*/*
 // @version  1.0.0
@@ -19,5 +20,13 @@ exports[`build 1`] = `
 
   GM_addElement(document.body, "div", { class: "index1" })
 })()
+
+GM_addStyle(\`
+body {
+  background-color: red;
+  color: white;
+}
+
+\`)
 "
 `;
