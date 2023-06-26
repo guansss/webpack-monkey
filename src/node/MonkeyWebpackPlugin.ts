@@ -1,8 +1,21 @@
 // @ts-ignore
 import ConcatenatedModule from "webpack/lib/optimize/ConcatenatedModule"
+// @ts-ignore
+import FlagDependencyUsagePlugin from "webpack/lib/FlagDependencyUsagePlugin"
 
 import { access, readFile } from "fs/promises"
-import { castArray, compact, find, isFunction, isObject, isString, without } from "lodash"
+import {
+  castArray,
+  compact,
+  find,
+  isArray,
+  isFunction,
+  isObject,
+  isString,
+  trimEnd,
+  uniq,
+  without,
+} from "lodash"
 import path from "path"
 import {
   Chunk,
@@ -26,9 +39,14 @@ import {
 } from "../shared/constants"
 import { UserscriptMeta } from "../shared/meta"
 import { MonkeyDevInjection, MonkeyInjection, UserscriptInfo } from "../types/userscript"
-import { ExtractFunction, LiteralUnion, MaybePromise } from "../types/utils"
+import { ExtractFunction, MaybePromise } from "../types/utils"
 import { colorize } from "./color"
-import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
+import {
+  generateMetaBlock,
+  getPackageDepVersion,
+  getPackageJson,
+  getUnnamedUrlExternalErrorMessage,
+} from "./utils"
 
 const { RawSource, ConcatSource } = sources
 
@@ -37,6 +55,7 @@ type RequireResolver = (args: {
   externalType: string
   version?: string
   packageVersion?: string
+  url?: string
 }) => MaybePromise<string | undefined>
 
 type CdnProvider = "jsdelivr" | "unpkg"
@@ -57,6 +76,13 @@ type metaTransformer = (
 type WebpackLogger = Compilation["logger"]
 type EntryDependency = ReturnType<(typeof EntryPlugin)["createDependency"]>
 
+interface ResolvedExternal {
+  userRequest: string
+  type?: string
+  identifier?: string
+  url: string
+}
+
 export interface MonkeyWebpackPluginOptions {
   require?:
     | CdnProvider
@@ -71,8 +97,7 @@ export interface MonkeyWebpackPluginOptions {
     transform?: metaTransformer
   }
   devScript?: {
-    name?: string
-    match?: string[] | LiteralUnion<"exact">
+    meta?: Partial<UserscriptMeta> | ((arg: { meta: UserscriptMeta }) => UserscriptMeta)
     transform?: (content: string) => string
   }
   debug?: boolean
@@ -98,7 +123,11 @@ function createRequireResolver({
       return requireOpt(args)
     }
 
-    const { name, version, packageVersion } = args
+    const { name, version, packageVersion, url } = args
+
+    if (url) {
+      return url
+    }
 
     if (isObject(requireOpt) && requireOpt[name]) {
       return requireOpt[name]
@@ -209,6 +238,8 @@ export class MonkeyWebpackPlugin {
   serveMode = false
   serverInfo?: ServerInfo
 
+  resolvedExternals = new Map<string, ResolvedExternal>()
+
   logger: WebpackLogger | typeof console = console
   infraLogger: WebpackLogger | typeof console = console
 
@@ -232,8 +263,12 @@ export class MonkeyWebpackPlugin {
 
     this.serveMode = true
 
-    const { port } = server.server!.address() as import("net").AddressInfo
+    const port = +(server.options.port || NaN)
     const host = server.options.host || "localhost"
+
+    if (isNaN(port)) {
+      throw new Error(`[${this.constructor.name}] Invalid port: ${server.options.port}`)
+    }
 
     this.serverInfo = {
       host,
@@ -255,7 +290,7 @@ export class MonkeyWebpackPlugin {
     server.invalidate()
 
     this.infraLogger.info(
-      `[webpack-monkey] Start your development by installing the dev script: ${colorize(
+      `Start your development by installing the dev script: ${colorize(
         "cyan",
         `http://${this.serverInfo.host}:${this.serverInfo.port}/${DEV_SCRIPT}`
       )}`
@@ -372,6 +407,42 @@ export class MonkeyWebpackPlugin {
           const { origin } = this.serverInfo!
           const assetUrl = (asset: string) => `${origin}/${asset}`
 
+          // compilation.hooks.beforeCodeGeneration.tap(this.constructor.name, () => {
+          //   const externalModules = [...compilation.modules].filter(
+          //     (m): m is ExternalModule => m instanceof ExternalModule
+          //   )
+
+          //   for (const module of externalModules) {
+          //     const { request, userRequest } = module
+          //     const isUnnamed = isString(request) && request.includes(VAR_UNNAMED_URL_EXTERNAL)
+
+          //     if (isUnnamed) {
+          //       const resolved = this.resolvedExternals.get(userRequest)
+          //       const error = getUnnamedUrlExternalErrorMessage(resolved?.url)
+          //       this.logger.warn(error)
+
+          //       const originalCodeGeneration = module.codeGeneration
+
+          //       // replace the code generation function to generate code
+          //       // that throws an error when the module is imported
+          //       module.codeGeneration = (...args) => {
+          //         // replace the request, which is used to generate the code
+          //         module.request = request.replace(
+          //           VAR_UNNAMED_URL_EXTERNAL,
+          //           `(()=>{throw new Error(${JSON.stringify(error)})})`
+          //         )
+
+          //         const code = originalCodeGeneration.apply(module, args)
+
+          //         // restore the original request
+          //         module.request = request
+
+          //         return code
+          //       }
+          //     }
+          //   }
+          // })
+
           compilation.hooks.processAssets.tapPromise(
             {
               name: this.constructor.name,
@@ -431,6 +502,7 @@ export class MonkeyWebpackPlugin {
               const runtimeSource = assets[runtimeScript]!
 
               const monkeyInjection: MonkeyInjection = {
+                debug: this.options.debug || false,
                 origin: origin!,
                 userscripts: qualifiedUserscripts,
               }
@@ -479,6 +551,8 @@ export class MonkeyWebpackPlugin {
                         return
                       }
 
+                      console.log("----------------------------", chunk.name, chunk.runtime)
+
                       const jsSource = assets[jsFile]
 
                       if (!jsSource) {
@@ -501,23 +575,54 @@ export class MonkeyWebpackPlugin {
 
                       const requires = compact(
                         await Promise.all(
-                          externalModules.map(async ({ userRequest: name, externalType }) => {
+                          externalModules.map(async (mod) => {
+                            const { userRequest, request, externalType } = mod
+
                             const version = getPackageDepVersion(
                               (await projectPackageJson)?.data,
-                              name
+                              userRequest
                             )
 
                             let packageVersion: string | undefined
 
                             if (version) {
-                              packageVersion = require(name).version
+                              try {
+                                packageVersion = require(userRequest).version
+                              } catch (ignored) {}
                             }
 
+                            const resolved = this.resolvedExternals.get(userRequest)
+
+                            // const connections = compilation.moduleGraph.getIncomingConnections(mod)
+                            // // debugger
+                            // // for (const conn of connections) {
+                            // //   console.log(
+                            // //     conn.conditional
+                            // //       ? conn.condition(conn, chunk.runtime)
+                            // //       : "not conditional"
+                            // //   )
+                            // // }
+                            // console.log(
+                            //   "==========================================",
+                            //   mod.identifier(),
+                            //   (compilation.moduleGraph as any)
+                            //     ._getModuleGraphModule(mod)
+                            //     .exports.isUsed(chunk.runtime),
+                            //   (compilation.moduleGraph as any)
+                            //     ._getModuleGraphModule(mod)
+                            //     .exports.isModuleUsed(chunk.runtime),
+                            //   (compilation.moduleGraph as any)
+                            //     ._getModuleGraphModule(mod)
+                            //     .exports.getUsedExports(chunk.runtime)
+                            // )
+                            // connections
+
                             return this.requireResolver({
-                              name,
+                              name: userRequest,
                               externalType,
                               version,
                               packageVersion,
+                              url: resolved?.url,
                             })
                           })
                         )
@@ -567,6 +672,53 @@ export class MonkeyWebpackPlugin {
             }
           )
         }
+
+        compilation.hooks.afterProcessAssets.tap(this.constructor.name, (assets) => {
+          const externalModules = [...compilation.modules].filter(
+            (m): m is ExternalModule => m instanceof ExternalModule
+          )
+
+          for (const module of externalModules) {
+            const { request } = module
+
+            const exportsInfo = compilation.moduleGraph.getExportsInfo(module)
+            const runtimes = uniq([...compilation.chunks].map((c) => c.runtime))
+
+            debugger
+
+            console.log(
+              "==========================================",
+              module.identifier(),
+              exportsInfo,
+              runtimes
+            )
+
+            if (
+              !runtimes.some((runtime) => {
+                debugger
+                // check if the module is imported with named import or default import
+                // e.g. `import { foo } from "bar"` or `import foo from "bar"`
+                return exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime)
+              })
+            ) {
+              continue
+            }
+
+            const isUnnamed = isString(request) && /^void\("http/.test(request)
+
+            if (isUnnamed) {
+              const resolved = this.resolvedExternals.get(request)
+
+              // throw new Error(
+              //   `error in userscript "${userscript.name}": ` +
+              //     getUnnamedUrlExternalErrorMessage(resolved?.url)
+              // )
+              this.logger.warn(getUnnamedUrlExternalErrorMessage(resolved?.url))
+            }
+          }
+        })
+
+        compilation.hooks.afterProcessAssets.tap(this.constructor.name, () => {})
       }
     )
   }
@@ -582,16 +734,25 @@ export class MonkeyWebpackPlugin {
       throw new Error("missing serverInfo")
     }
 
-    let { name, match, transform } = this.options.devScript || {}
+    const { meta: userDefinedMeta, transform } = this.options.devScript || {}
 
-    if (!name) {
-      name = `[Dev] ${projectPackageJson?.name || "untitled project"}`
+    let meta: UserscriptMeta = {
+      name: `[Dev] ${projectPackageJson?.name || "untitled project"}`,
+      match: "*://*/*",
+      version: DEV_SCRIPT_VERSION,
+      // put everything in these fields because we don't know what the userscripts will do
+      connect: "*",
+      grant: getGMAPIs(),
     }
 
-    if (!match) {
-      match = "*://*/*"
-    } else if (match === "exact") {
-      match = this.userscripts.flatMap((u) => u.meta.match || [])
+    if (isFunction(userDefinedMeta)) {
+      meta = userDefinedMeta({ meta })
+    } else if (isObject(userDefinedMeta)) {
+      meta = { ...meta, ...userDefinedMeta }
+    }
+
+    if (meta.match === "exact") {
+      meta.match = this.userscripts.flatMap((u) => u.meta.match || [])
     }
 
     let content = await this.readFile(externalAssets.devScript)
@@ -603,18 +764,7 @@ export class MonkeyWebpackPlugin {
 
     content = `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify(devInjection)};\n\n` + content
 
-    content =
-      generateMetaBlock("", {
-        name,
-        version: DEV_SCRIPT_VERSION,
-        match,
-
-        // put everything in these fields because we don't know what the userscripts will do
-        connect: "*",
-        grant: getGMAPIs(),
-      }) +
-      "\n\n" +
-      content
+    content = generateMetaBlock("", meta) + "\n\n" + content
 
     if (transform) {
       content = transform(content)
@@ -633,28 +783,108 @@ export class MonkeyWebpackPlugin {
   resolveExternals(
     data: ExternalItemFunctionData,
     callback: (err?: Error, result?: ExternalItemValue) => void,
-    userDefinedExternals:
+    userDefinedExternals?:
       | Record<string, ExternalItemValue>
       | ExtractFunction<Configuration["externals"]>
   ): void {
-    // disable externals in serve mode
-    if (this.serveMode) {
-      return callback()
+    const { request } = data
+
+    const wrappedCallback: typeof callback = (err, result) => {
+      if (err) {
+        return callback(err, result)
+      }
+
+      if (request) {
+        if (result) {
+          result = this.resolveExternalWithUrl(request, result)
+        } else {
+          // there may be a URL in the request
+          const converted = this.resolveExternalWithUrl(request, request)
+
+          // if successful, the request will have its URL removed
+          if (converted !== request) {
+            result = converted
+          }
+        }
+      }
+
+      if (request?.includes("global3")) {
+        // console.log("=========================", request, result, typeof result)
+        // debugger
+      }
+
+      return callback(err, result)
     }
 
     if (isFunction(userDefinedExternals)) {
       const maybePromise = userDefinedExternals(data, callback)
-      maybePromise?.then((result) => callback(undefined, result), callback)
+      maybePromise?.then((result) => wrappedCallback(undefined, result), wrappedCallback)
       return
     }
 
-    const { request } = data
-
-    if (request && Object.prototype.hasOwnProperty.call(userDefinedExternals, request)) {
-      return callback(undefined, userDefinedExternals[request])
+    if (
+      isObject(userDefinedExternals) &&
+      request &&
+      Object.prototype.hasOwnProperty.call(userDefinedExternals, request)
+    ) {
+      return wrappedCallback(undefined, userDefinedExternals[request])
     }
 
-    return callback()
+    return wrappedCallback()
+  }
+
+  /**
+   * Resolves an external request. If the request contains a URL, the resolved result will be
+   * stored into `resolvedExternals` for later use, and this function will return the converted
+   * request with the URL removed.
+   * @returns The converted request, or the original request if it doesn't contain a URL.
+   * @example
+   * ```ts
+   * resolveExternalWithUrl("...", "var foo@https://example.com") // => "var foo"
+   * resolveExternalWithUrl("...", "foo@https://example.com") // => "foo"
+   * resolveExternalWithUrl("...", "https://example.com") // => "undefined"
+   * resolveExternalWithUrl("...", "foo") // => undefined (not resolved)
+   * ```
+   */
+  resolveExternalWithUrl(userRequest: string, value: ExternalItemValue): ExternalItemValue {
+    const resolveAndConvert = (strValue: string) => {
+      const match = strValue.match(/^(.*? )?(.+?@)?(https?:\/\/.+)$/)
+
+      if (!match) {
+        return strValue
+      }
+
+      const type = match[1]?.trim()
+      const identifier = match[2] && trimEnd(match[2], "@")
+      const url = match[3]!
+
+      const resolved: ResolvedExternal = {
+        userRequest,
+        type,
+        identifier,
+        url,
+      }
+
+      this.resolvedExternals.set(userRequest, resolved)
+
+      const getFallbackIdentifier = () => {
+        // when building, we want the compiler to fail on this, but we can't immediately
+        // throw an error because yet we don't know if this identifier will be used or not by the user.
+        // If it's unused, Terser will remove it (because of the PURE annotation) and everything will be fine.
+        // If it's used, we can detect it later in the compilation process and throw an error.
+        return `void(${JSON.stringify(url)})`
+      }
+
+      return (type || "var") + " " + (identifier || getFallbackIdentifier())
+    }
+
+    if (isString(value)) {
+      return resolveAndConvert(value)
+    }
+    if (isArray(value)) {
+      return [resolveAndConvert(value[0]), ...value.slice(1)]
+    }
+    return value
   }
 
   private readFile(file: string) {

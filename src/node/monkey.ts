@@ -66,8 +66,10 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
             },
           },
 
-          onListening: (server) => {
+          setupMiddlewares: (middlewares, server) => {
             plugin["setupServeMode"](server)
+
+            return config.devServer?.setupMiddlewares?.(middlewares, server) ?? middlewares
           },
         },
 
@@ -80,11 +82,9 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
 
         externalsType: "var",
 
-        ...(!isNil(userDefinedExternals) && {
-          externals: (data, callback) => {
-            return plugin.resolveExternals(data, callback, userDefinedExternals as any)
-          },
-        }),
+        externals: (data, callback) => {
+          return plugin.resolveExternals(data, callback, userDefinedExternals as any)
+        },
       }
     )
   }

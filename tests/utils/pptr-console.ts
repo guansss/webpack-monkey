@@ -7,16 +7,20 @@ export function clearLogs() {
   logs = []
 }
 
-beforeAll(() => {
-  browser.on("targetcreated", async (target: Target) => {
-    const page = await target.page()
+async function onTargetCreated(target: Target) {
+  const page = await target.page()
 
-    if (page) {
-      page.on("console", (msg) => {
-        logs.push(msg)
-      })
-    }
+  page?.on("console", (msg) => {
+    logs.push(msg)
   })
+}
+
+beforeAll(() => {
+  browser.on("targetcreated", onTargetCreated)
+})
+
+afterAll(() => {
+  browser.off("targetcreated", onTargetCreated)
 })
 
 beforeEach(() => {

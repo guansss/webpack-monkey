@@ -130,3 +130,16 @@ export function generateMetaBlock(
 
   return metaBlock
 }
+
+export function getUnnamedUrlExternalErrorMessage(url?: string) {
+  const exampleUrl = url || "https://example.com"
+  return `Unexpected reference to unnamed external module with URL "${url || "<unknown URL>"}".
+This happens when you import a module from a URL
+but do not specify an identifier for it,
+e.g. "import foo from "${exampleUrl}", which will cause
+runtime errors in the generated code. To fix this,
+either add a universally unique identifier to the import statement,
+e.g. "import foo from "foo@${exampleUrl}",
+or do not import anything from it,
+e.g. "import "${exampleUrl}".`.replace(/\n/g, " ")
+}
