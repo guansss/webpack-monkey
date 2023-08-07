@@ -78,15 +78,18 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
             name: () => plugin.getRuntimeName(),
           },
           minimizer: [new MonkeyWebpackMinimizer(options)],
+
+          // by default this is false in development mode, we turn it on to allow the plugin to
+          // detect unexpected named/default imports of unnamed external modules and then warn the user
+          // TODO: this may lower the performance, maybe find a solution that doesn't require this option
+          usedExports: true,
         },
 
         externalsType: "var",
 
-        ...(!isNil(userDefinedExternals) && {
-          externals: (data, callback) => {
-            return plugin.resolveExternals(data, callback, userDefinedExternals as any)
-          },
-        }),
+        externals: (data, callback) => {
+          return plugin.resolveExternals(data, callback, userDefinedExternals as any)
+        },
       }
     )
   }

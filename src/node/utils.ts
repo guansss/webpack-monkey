@@ -2,7 +2,7 @@
 // prettier-ignore
 import { getDescriptionFile, getRequiredVersionFromDescriptionFile } from "webpack/lib/sharing/utils";
 
-import { isArray, isBoolean, isNil, isObject, isString } from "lodash"
+import { isArray, isBoolean, isNil, isObject, isString, trimEnd } from "lodash"
 import { Compilation, sources } from "webpack"
 import { getGMAPIs } from "../shared/GM"
 import { META_FIELDS, META_FIELDS_WITH_LOCALIZATION, UserscriptMeta } from "../shared/meta"
@@ -129,4 +129,52 @@ export function generateMetaBlock(
   metaBlock += "// ==/UserScript=="
 
   return metaBlock
+}
+
+export interface ResolvedExternal {
+  userRequest: string
+  type?: string
+  identifier?: string
+  url: string
+  value: string
+}
+
+export function resolveUrlExternal(
+  userRequest: string,
+  externalValue: string
+): ResolvedExternal | undefined {
+  // full example: "var foo@https://example.com"
+  const match = externalValue.match(/^(.*? )?(.+?@)?(https?:\/\/.+)$/)
+
+  if (!match) {
+    return undefined
+  }
+
+  const type = match[1]?.trim()
+  const identifier = match[2] && trimEnd(match[2], "@")
+  const url = match[3]!
+  const value = (type ? type + " " : "") + (identifier || JSON.stringify(url))
+
+  const resolved: ResolvedExternal = {
+    userRequest,
+    type,
+    identifier,
+    url,
+    value,
+  }
+
+  return resolved
+}
+
+export function getUnnamedUrlExternalErrorMessage(url?: string) {
+  const exampleUrl = url || "https://example.com"
+  return `Unexpected reference to unnamed external module with URL "${url || "<unknown URL>"}".
+This happens when you import a module from a URL
+but do not specify an identifier for it,
+e.g. "import foo from "${exampleUrl}", which will cause
+runtime errors in the generated code. To fix this,
+either add a universally unique identifier to the import statement,
+e.g. "import foo from "foo@${exampleUrl}",
+or do not import anything from it,
+e.g. "import "${exampleUrl}".`.replace(/\n/g, " ")
 }

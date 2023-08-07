@@ -2,7 +2,17 @@
 import ConcatenatedModule from "webpack/lib/optimize/ConcatenatedModule"
 
 import { access, readFile } from "fs/promises"
-import { castArray, compact, find, isFunction, isObject, isString, without } from "lodash"
+import {
+  castArray,
+  compact,
+  find,
+  isArray,
+  isFunction,
+  isObject,
+  isString,
+  uniq,
+  without,
+} from "lodash"
 import path from "path"
 import {
   Chunk,
@@ -26,9 +36,16 @@ import {
 } from "../shared/constants"
 import { UserscriptMeta } from "../shared/meta"
 import { MonkeyDevInjection, MonkeyInjection, UserscriptInfo } from "../types/userscript"
-import { ExtractFunction, LiteralUnion, MaybePromise } from "../types/utils"
+import { ExtractFunction, MaybePromise } from "../types/utils"
 import { colorize } from "./color"
-import { generateMetaBlock, getPackageDepVersion, getPackageJson } from "./utils"
+import {
+  ResolvedExternal,
+  generateMetaBlock,
+  getPackageDepVersion,
+  getPackageJson,
+  getUnnamedUrlExternalErrorMessage,
+  resolveUrlExternal,
+} from "./utils"
 
 const { RawSource, ConcatSource } = sources
 
@@ -37,6 +54,7 @@ type RequireResolver = (args: {
   externalType: string
   version?: string
   packageVersion?: string
+  url?: string
 }) => MaybePromise<string | undefined>
 
 type CdnProvider = "jsdelivr" | "unpkg"
@@ -71,8 +89,7 @@ export interface MonkeyWebpackPluginOptions {
     transform?: metaTransformer
   }
   devScript?: {
-    name?: string
-    match?: string[] | LiteralUnion<"exact">
+    meta?: Partial<UserscriptMeta> | ((arg: { meta: UserscriptMeta }) => UserscriptMeta)
     transform?: (content: string) => string
   }
   debug?: boolean
@@ -98,7 +115,11 @@ function createRequireResolver({
       return requireOpt(args)
     }
 
-    const { name, version, packageVersion } = args
+    const { name, version, packageVersion, url } = args
+
+    if (url) {
+      return url
+    }
 
     if (isObject(requireOpt) && requireOpt[name]) {
       return requireOpt[name]
@@ -209,6 +230,8 @@ export class MonkeyWebpackPlugin {
   serveMode = false
   serverInfo?: ServerInfo
 
+  resolvedExternals = new Map<string, ResolvedExternal>()
+
   logger: WebpackLogger | typeof console = console
   infraLogger: WebpackLogger | typeof console = console
 
@@ -296,6 +319,9 @@ export class MonkeyWebpackPlugin {
       this.constructor.name,
       (compilation, { normalModuleFactory }) => {
         this.logger = compilation.getLogger(this.constructor.name)
+
+        // clear the cache on each compilation
+        this.resolvedExternals.clear()
 
         const projectPackageJson = getPackageJson(
           compilation.inputFileSystem,
@@ -432,6 +458,7 @@ export class MonkeyWebpackPlugin {
               const runtimeSource = assets[runtimeScript]!
 
               const monkeyInjection: MonkeyInjection = {
+                debug: this.options.debug || false,
                 origin: origin!,
                 userscripts: qualifiedUserscripts,
               }
@@ -502,23 +529,33 @@ export class MonkeyWebpackPlugin {
 
                       const requires = compact(
                         await Promise.all(
-                          externalModules.map(async ({ userRequest: name, externalType }) => {
+                          externalModules.map(async ({ userRequest, externalType }) => {
                             const version = getPackageDepVersion(
                               (await projectPackageJson)?.data,
-                              name
+                              userRequest
                             )
 
                             let packageVersion: string | undefined
 
                             if (version) {
-                              packageVersion = require(name).version
+                              try {
+                                packageVersion = require(userRequest).version
+                              } catch (e) {
+                                this.logger.log(
+                                  `could not find installed package "${userRequest}":`,
+                                  (e as Error)?.message || e
+                                )
+                              }
                             }
 
+                            const resolved = this.resolvedExternals.get(userRequest)
+
                             return this.requireResolver({
-                              name,
+                              name: userRequest,
                               externalType,
                               version,
                               packageVersion,
+                              url: resolved?.url,
                             })
                           })
                         )
@@ -568,6 +605,38 @@ export class MonkeyWebpackPlugin {
             }
           )
         }
+
+        // detect named/default imports of unnamed external modules and warn the user,
+        // or throw an error when building for production
+        compilation.hooks.optimizeDependencies.tap(this.constructor.name, () => {
+          const externalModules = [...compilation.modules].filter(
+            (m): m is ExternalModule => m instanceof ExternalModule
+          )
+
+          for (const module of externalModules) {
+            const exportsInfo = compilation.moduleGraph.getExportsInfo(module)
+            const runtimes = uniq([...compilation.chunks].map((c) => c.runtime))
+
+            if (
+              !runtimes.some(
+                // check if the module is imported with named import or default import
+                // e.g. `import { foo } from "bar"` or `import foo from "bar"`
+                (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime)
+              )
+            ) {
+              continue
+            }
+
+            const resolved = this.resolvedExternals.get(module.userRequest)
+
+            if (resolved && !resolved.identifier) {
+              if (!this.serveMode) {
+                throw new Error(getUnnamedUrlExternalErrorMessage(resolved.url))
+              }
+              this.logger.warn(getUnnamedUrlExternalErrorMessage(resolved.url))
+            }
+          }
+        })
       }
     )
   }
@@ -583,16 +652,25 @@ export class MonkeyWebpackPlugin {
       throw new Error("missing serverInfo")
     }
 
-    let { name, match, transform } = this.options.devScript || {}
+    const { meta: userDefinedMeta, transform } = this.options.devScript || {}
 
-    if (!name) {
-      name = `[Dev] ${projectPackageJson?.name || "untitled project"}`
+    let meta: UserscriptMeta = {
+      name: `[Dev] ${projectPackageJson?.name || "untitled project"}`,
+      match: "*://*/*",
+      version: DEV_SCRIPT_VERSION,
+      // put everything in these fields because we don't know what the userscripts will do
+      connect: "*",
+      grant: getGMAPIs(),
     }
 
-    if (!match) {
-      match = "*://*/*"
-    } else if (match === "exact") {
-      match = this.userscripts.flatMap((u) => u.meta.match || [])
+    if (isFunction(userDefinedMeta)) {
+      meta = userDefinedMeta({ meta })
+    } else if (isObject(userDefinedMeta)) {
+      meta = { ...meta, ...userDefinedMeta }
+    }
+
+    if (meta.match === "exact") {
+      meta.match = this.userscripts.flatMap((u) => u.meta.match || [])
     }
 
     let content = await this.readFile(externalAssets.devScript)
@@ -604,18 +682,7 @@ export class MonkeyWebpackPlugin {
 
     content = `window.${VAR_MK_DEV_INJECTION} = ${JSON.stringify(devInjection)};\n\n` + content
 
-    content =
-      generateMetaBlock("", {
-        name,
-        version: DEV_SCRIPT_VERSION,
-        match,
-
-        // put everything in these fields because we don't know what the userscripts will do
-        connect: "*",
-        grant: getGMAPIs(),
-      }) +
-      "\n\n" +
-      content
+    content = generateMetaBlock("", meta) + "\n\n" + content
 
     if (transform) {
       content = transform(content)
@@ -634,28 +701,84 @@ export class MonkeyWebpackPlugin {
   resolveExternals(
     data: ExternalItemFunctionData,
     callback: (err?: Error, result?: ExternalItemValue) => void,
-    userDefinedExternals:
+    userDefinedExternals?:
       | Record<string, ExternalItemValue>
       | ExtractFunction<Configuration["externals"]>
   ): void {
-    // disable externals in serve mode
-    if (this.serveMode) {
-      return callback()
+    const { request } = data
+
+    const wrappedCallback: typeof callback = (err, result) => {
+      if (err) {
+        return callback(err, result)
+      }
+
+      if (request) {
+        if (result) {
+          result = this.resolveExternalWithUrl(request, result)
+        } else {
+          // there may be a URL in the request
+          const converted = this.resolveExternalWithUrl(request, request)
+
+          // if successful, the request will have its URL removed
+          if (converted !== request) {
+            result = converted
+          }
+        }
+      }
+
+      return callback(err, result)
     }
 
     if (isFunction(userDefinedExternals)) {
       const maybePromise = userDefinedExternals(data, callback)
-      maybePromise?.then((result) => callback(undefined, result), callback)
+      maybePromise?.then((result) => wrappedCallback(undefined, result), wrappedCallback)
       return
     }
 
-    const { request } = data
-
-    if (request && Object.prototype.hasOwnProperty.call(userDefinedExternals, request)) {
-      return callback(undefined, userDefinedExternals[request])
+    if (
+      isObject(userDefinedExternals) &&
+      request &&
+      Object.prototype.hasOwnProperty.call(userDefinedExternals, request)
+    ) {
+      return wrappedCallback(undefined, userDefinedExternals[request])
     }
 
-    return callback()
+    return wrappedCallback()
+  }
+
+  /**
+   * Resolves an external request. If the request contains a URL, the resolved result will be
+   * stored into `resolvedExternals` for later use, and this function will return the converted
+   * request with the URL removed.
+   * @returns The converted request, or the original request if it doesn't contain a URL.
+   * @example
+   * ```ts
+   * resolveExternalWithUrl("...", "var foo@https://example.com") // => "var foo"
+   * resolveExternalWithUrl("...", "foo@https://example.com") // => "foo"
+   * resolveExternalWithUrl("...", "https://example.com") // => "EXTERNAL("https://example.com")"
+   * resolveExternalWithUrl("...", "foo") // => "foo" (not resolved)
+   * ```
+   */
+  resolveExternalWithUrl(userRequest: string, value: ExternalItemValue): ExternalItemValue {
+    const resolveAndConvert = (strValue: string) => {
+      const resolved = resolveUrlExternal(userRequest, strValue)
+
+      if (!resolved) {
+        return strValue
+      }
+
+      this.resolvedExternals.set(userRequest, resolved)
+
+      return resolved.value
+    }
+
+    if (isString(value)) {
+      return resolveAndConvert(value)
+    }
+    if (isArray(value)) {
+      return [resolveAndConvert(value[0]), ...value.slice(1)]
+    }
+    return value
   }
 
   private readFile(file: string) {

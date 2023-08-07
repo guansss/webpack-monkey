@@ -1,0 +1,68 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`build 1`] = `
+"// ==UserScript==
+// @name     External test
+// @require  https://unpkg.com/ex-namedundefined
+// @require  https://ex-url-named
+// @require  https://ex-url
+// @require  https://ex-url-global-named
+// @require  https://ex-url-global
+// @require  https://ex-url-global2
+// @require  https://ex-url-global3
+// @require  https://unpkg.com/exundefined
+// @match    *://*/*
+// @version  1.0.0
+// ==/UserScript==
+
+;(() => {
+  "use strict"
+  // The require scope
+  var __webpack_require__ = {}
+  /* webpack/runtime/compat get default export */
+  ;(() => {
+    // getDefaultExport function for compatibility with non-harmony modules
+    __webpack_require__.n = (module) => {
+      var getter = module && module.__esModule ? () => module["default"] : () => module
+      __webpack_require__.d(getter, { a: getter })
+      return getter
+    }
+  })()
+  /* webpack/runtime/define property getters */
+  ;(() => {
+    // define getter functions for harmony exports
+    __webpack_require__.d = (exports, definition) => {
+      for (var key in definition)
+        __webpack_require__.o(definition, key) &&
+          !__webpack_require__.o(exports, key) &&
+          Object.defineProperty(exports, key, { enumerable: true, get: definition[key] })
+    }
+  })()
+  /* webpack/runtime/hasOwnProperty shorthand */
+  ;(() => {
+    __webpack_require__.o = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop)
+  })()
+
+  const external_exNamed_namespaceObject = exNamed
+  var external_exNamed_default = __webpack_require__.n(external_exNamed_namespaceObject)
+
+  const external_exUrlNamed_namespaceObject = exUrlNamed
+  var external_exUrlNamed_default = __webpack_require__.n(external_exUrlNamed_namespaceObject)
+
+  const ex_url_namespaceObject = "https://ex-url"
+  var ex_url_default = __webpack_require__.n(ex_url_namespaceObject)
+
+  exUrlGlobalNamed
+
+  EX
+
+  window.externalTestResult = [
+    [external_exNamed_default().x1, external_exNamed_namespaceObject.x1],
+    [ex_url_default().x2, ex_url_namespaceObject.x2],
+    [external_exUrlNamed_default().x3, external_exUrlNamed_namespaceObject.x3],
+    [exUrlGlobal.x1],
+    [exUrlGlobalNamed.x1],
+  ]
+})()
+"
+`;
