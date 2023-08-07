@@ -43,8 +43,7 @@ export function compilerRun(compiler: webpack.Compiler) {
       const info = stats.toJson()
 
       if (stats.hasErrors()) {
-        console.error(info.errors)
-        return reject(new Error("Failed to compile."))
+        return reject(new Error(info.errors?.map((e) => e.message).join("\n\n")))
       }
 
       if (stats.hasWarnings()) {

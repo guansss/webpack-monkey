@@ -1,11 +1,10 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`build 1`] = `
+exports[`build 2`] = `
 "// ==UserScript==
 // @name     External test
 // @require  https://unpkg.com/ex-namedundefined
 // @require  https://ex-url-named
-// @require  https://ex-url
 // @require  https://ex-url-global-named
 // @require  https://ex-url-global
 // @require  https://ex-url-global2
@@ -49,16 +48,14 @@ exports[`build 1`] = `
   const external_exUrlNamed_namespaceObject = exUrlNamed
   var external_exUrlNamed_default = __webpack_require__.n(external_exUrlNamed_namespaceObject)
 
-  const ex_url_namespaceObject = "https://ex-url"
-  var ex_url_default = __webpack_require__.n(ex_url_namespaceObject)
-
   exUrlGlobalNamed
 
   EX
 
+  //removeMe import exUrl, { x2 } from "https://ex-url"
   window.externalTestResult = [
     [external_exNamed_default().x1, external_exNamed_namespaceObject.x1],
-    [ex_url_default().x2, ex_url_namespaceObject.x2],
+    //removeMe [exUrl.x2, x2],
     [external_exUrlNamed_default().x3, external_exUrlNamed_namespaceObject.x3],
     [exUrlGlobal.x1],
     [exUrlGlobalNamed.x1],

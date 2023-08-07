@@ -55,11 +55,7 @@ export function traverseAndFindSource(
   return traverseAndFindSource((source as any)._source, cb)
 }
 
-export function generateMetaBlock(
-  source: string,
-  meta: UserscriptMeta,
-  { requires }: { requires?: string[] } = {}
-) {
+export function generateMetaBlock(source: string, meta: UserscriptMeta) {
   let metaBlock = "// ==UserScript==\n"
   const fieldPrefix = "// @"
 
@@ -115,10 +111,6 @@ export function generateMetaBlock(
       if (meta.grant) {
         putField("grant", meta.grant)
       }
-    } else if (field === "require") {
-      if (requires) {
-        putField("require", requires)
-      }
     } else {
       if (!isNil(meta[field])) {
         putField(field, meta[field]!)
@@ -131,18 +123,14 @@ export function generateMetaBlock(
   return metaBlock
 }
 
-export interface ResolvedExternal {
-  userRequest: string
+export interface ResolveExternalResult {
   type?: string
   identifier?: string
   url: string
   value: string
 }
 
-export function resolveUrlExternal(
-  userRequest: string,
-  externalValue: string
-): ResolvedExternal | undefined {
+export function resolveUrlExternal(externalValue: string): ResolveExternalResult | undefined {
   // full example: "var foo@https://example.com"
   const match = externalValue.match(/^(.*? )?(.+?@)?(https?:\/\/.+)$/)
 
@@ -155,8 +143,7 @@ export function resolveUrlExternal(
   const url = match[3]!
   const value = (type ? type + " " : "") + (identifier || JSON.stringify(url))
 
-  const resolved: ResolvedExternal = {
-    userRequest,
+  const resolved: ResolveExternalResult = {
     type,
     identifier,
     url,
@@ -171,10 +158,10 @@ export function getUnnamedUrlExternalErrorMessage(url?: string) {
   return `Unexpected reference to unnamed external module with URL "${url || "<unknown URL>"}".
 This happens when you import a module from a URL
 but do not specify an identifier for it,
-e.g. "import foo from "${exampleUrl}", which will cause
+e.g. \`import foo from "${exampleUrl}"\`, which will cause
 runtime errors in the generated code. To fix this,
 either add a universally unique identifier to the import statement,
-e.g. "import foo from "foo@${exampleUrl}",
+e.g. \`import foo from "foo@${exampleUrl}"\`,
 or do not import anything from it,
-e.g. "import "${exampleUrl}".`.replace(/\n/g, " ")
+e.g. \`import "${exampleUrl}"\`.`.replace(/\n/g, " ")
 }

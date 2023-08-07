@@ -23,6 +23,7 @@ import {
   ExternalItemFunctionData,
   ExternalItemValue,
   ExternalModule,
+  WebpackError,
   sources,
 } from "webpack"
 import type WebpackDevServer from "webpack-dev-server"
@@ -35,11 +36,11 @@ import {
   VAR_MK_INJECTION,
 } from "../shared/constants"
 import { UserscriptMeta } from "../shared/meta"
+import { castTruthyArray } from "../shared/utils"
 import { MonkeyDevInjection, MonkeyInjection, UserscriptInfo } from "../types/userscript"
 import { ExtractFunction, MaybePromise } from "../types/utils"
 import { colorize } from "./color"
 import {
-  ResolvedExternal,
   generateMetaBlock,
   getPackageDepVersion,
   getPackageJson,
@@ -215,6 +216,15 @@ const externalAssets = {
   devScript: require.resolve("../dev.user.js"),
 } as const
 
+export interface ResolvedExternal {
+  userRequest: string
+  type?: string
+  identifier?: string
+  url: string
+  value: string
+  used: boolean
+}
+
 export class MonkeyWebpackPlugin {
   compiler?: Compiler
 
@@ -323,7 +333,7 @@ export class MonkeyWebpackPlugin {
         // clear the cache on each compilation
         this.resolvedExternals.clear()
 
-        const projectPackageJson = getPackageJson(
+        const projectPackageJsonPromise = getPackageJson(
           compilation.inputFileSystem,
           compiler.context
         ).catch((e) => {
@@ -379,6 +389,7 @@ export class MonkeyWebpackPlugin {
                 entry: entryFile,
                 dir: path.dirname(entryFile),
                 meta,
+                requires: castTruthyArray(meta.require),
                 assets: [],
               }
 
@@ -394,6 +405,45 @@ export class MonkeyWebpackPlugin {
             this.userscriptsLoaded = this.userscriptsLoaded.then(() => loadUserscriptPromise)
           }
         )
+
+        // detect named/default imports of unnamed external modules and warn the user,
+        // or throw an error when building for production
+        compilation.hooks.afterChunks.tap(this.constructor.name, (chunks) => {
+          const externalModules = [...compilation.modules].filter(
+            (m): m is ExternalModule => m instanceof ExternalModule
+          )
+
+          for (const module of externalModules) {
+            const exportsInfo = compilation.moduleGraph.getExportsInfo(module)
+            const runtimes = uniq([...chunks].map((c) => c.runtime))
+
+            if (
+              !runtimes.some(
+                // check if the module is imported with named import or default import
+                // e.g. `import { foo } from "bar"` or `import foo from "bar"`
+                (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime)
+              )
+            ) {
+              continue
+            }
+
+            const resolved = this.resolvedExternals.get(module.userRequest)
+
+            if (resolved) {
+              resolved.used = true
+
+              if (!resolved.identifier) {
+                if (this.serveMode) {
+                  this.logger.warn(getUnnamedUrlExternalErrorMessage(resolved.url))
+                } else {
+                  compilation.errors.push(
+                    new WebpackError(getUnnamedUrlExternalErrorMessage(resolved.url))
+                  )
+                }
+              }
+            }
+          }
+        })
 
         if (this.serveMode) {
           const { origin } = this.serverInfo!
@@ -411,44 +461,58 @@ export class MonkeyWebpackPlugin {
 
               let runtimeScript: string | undefined
 
-              for (const [name, entrypoint] of compilation.entrypoints) {
-                if (!runtimeScript) {
-                  const runtimeChunk = find(entrypoint.chunks, { name: "runtime" })
+              const entrypoints = Array.from(compilation.entrypoints.entries())
 
-                  if (runtimeChunk) {
-                    runtimeScript = findOneOrNoneJsFile(runtimeChunk)
+              await Promise.all(
+                entrypoints.map(async ([name, entrypoint]) => {
+                  if (!runtimeScript) {
+                    const runtimeChunk = find(entrypoint.chunks, { name: "runtime" })
+
+                    if (runtimeChunk) {
+                      runtimeScript = findOneOrNoneJsFile(runtimeChunk)
+                    }
                   }
-                }
 
-                const userscript = find(this.userscripts, { name })
+                  const userscript = find(this.userscripts, { name })
 
-                if (!userscript) {
-                  continue
-                }
+                  if (!userscript) {
+                    return
+                  }
 
-                const chunk = find(entrypoint.chunks, { name })
+                  const chunk = find(entrypoint.chunks, { name })
 
-                if (!chunk) {
-                  this.logger.warn("Chunk not found for userscript:", name)
-                  continue
-                }
+                  if (!chunk) {
+                    this.logger.warn("Chunk not found for userscript:", name)
+                    return
+                  }
 
-                const file = findOneOrNoneJsFile(chunk)
+                  const file = findOneOrNoneJsFile(chunk)
 
-                if (file && assets[file]) {
-                  qualifiedUserscripts.push({
+                  if (!(file && assets[file])) {
+                    this.logger.warn("file not found for userscript:", name)
+                    return
+                  }
+
+                  const qualifiedUserscript: UserscriptInfo = {
                     ...userscript,
                     url: assetUrl(file),
+                    requires: [
+                      ...userscript.requires,
+                      ...(await this.getRequiresFromExternalModules({
+                        compilation,
+                        chunk,
+                        projectPackageJson: await projectPackageJsonPromise,
+                      })),
+                    ],
 
                     // when using mini-css-extract-plugin, the CSS is extracted into a separate file,
-                    // we provide their URLs to the client script
+                    // we provide their URLs to the client
                     assets: without(Array.from(chunk.files), file).map(assetUrl),
-                  })
-                } else {
-                  this.logger.warn("URL not found for userscript:", name)
-                  continue
-                }
-              }
+                  }
+
+                  qualifiedUserscripts.push(qualifiedUserscript)
+                })
+              )
 
               if (!runtimeScript || !assets[runtimeScript]) {
                 this.logger.error("runtime script not found")
@@ -473,7 +537,7 @@ export class MonkeyWebpackPlugin {
 
               const devScriptContent = await this.generateDevScript({
                 runtimeScript,
-                projectPackageJson: (await projectPackageJson)?.data,
+                projectPackageJson: (await projectPackageJsonPromise)?.data,
               })
 
               compilation.emitAsset(DEV_SCRIPT, new RawSource(devScriptContent))
@@ -514,53 +578,6 @@ export class MonkeyWebpackPlugin {
                         return
                       }
 
-                      // TODO: more reliable way to get all modules
-                      const modules = compilation.chunkGraph
-                        .getChunkModules(chunk)
-                        .flatMap((mod) =>
-                          mod instanceof ConcatenatedModule
-                            ? (mod as ConcatenatedModule).modules
-                            : mod
-                        )
-
-                      const externalModules = modules.filter(
-                        (dep): dep is ExternalModule => dep instanceof ExternalModule
-                      )
-
-                      const requires = compact(
-                        await Promise.all(
-                          externalModules.map(async ({ userRequest, externalType }) => {
-                            const version = getPackageDepVersion(
-                              (await projectPackageJson)?.data,
-                              userRequest
-                            )
-
-                            let packageVersion: string | undefined
-
-                            if (version) {
-                              try {
-                                packageVersion = require(userRequest).version
-                              } catch (e) {
-                                this.logger.log(
-                                  `could not find installed package "${userRequest}":`,
-                                  (e as Error)?.message || e
-                                )
-                              }
-                            }
-
-                            const resolved = this.resolvedExternals.get(userRequest)
-
-                            return this.requireResolver({
-                              name: userRequest,
-                              externalType,
-                              version,
-                              packageVersion,
-                              url: resolved?.url,
-                            })
-                          })
-                        )
-                      )
-
                       let jsContent = jsSource.source().toString("utf-8")
 
                       // inline CSS
@@ -591,7 +608,17 @@ export class MonkeyWebpackPlugin {
 
                       // inject meta block
                       jsContent =
-                        generateMetaBlock(jsContent, userscript.meta, { requires }) +
+                        generateMetaBlock(jsContent, {
+                          ...userscript.meta,
+                          require: [
+                            ...castTruthyArray(userscript.meta.require),
+                            ...(await this.getRequiresFromExternalModules({
+                              compilation,
+                              chunk,
+                              projectPackageJson: await projectPackageJsonPromise,
+                            })),
+                          ],
+                        }) +
                         "\n\n" +
                         jsContent
 
@@ -605,38 +632,6 @@ export class MonkeyWebpackPlugin {
             }
           )
         }
-
-        // detect named/default imports of unnamed external modules and warn the user,
-        // or throw an error when building for production
-        compilation.hooks.optimizeDependencies.tap(this.constructor.name, () => {
-          const externalModules = [...compilation.modules].filter(
-            (m): m is ExternalModule => m instanceof ExternalModule
-          )
-
-          for (const module of externalModules) {
-            const exportsInfo = compilation.moduleGraph.getExportsInfo(module)
-            const runtimes = uniq([...compilation.chunks].map((c) => c.runtime))
-
-            if (
-              !runtimes.some(
-                // check if the module is imported with named import or default import
-                // e.g. `import { foo } from "bar"` or `import foo from "bar"`
-                (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime)
-              )
-            ) {
-              continue
-            }
-
-            const resolved = this.resolvedExternals.get(module.userRequest)
-
-            if (resolved && !resolved.identifier) {
-              if (!this.serveMode) {
-                throw new Error(getUnnamedUrlExternalErrorMessage(resolved.url))
-              }
-              this.logger.warn(getUnnamedUrlExternalErrorMessage(resolved.url))
-            }
-          }
-        })
       }
     )
   }
@@ -689,6 +684,60 @@ export class MonkeyWebpackPlugin {
     }
 
     return content
+  }
+
+  async getRequiresFromExternalModules({
+    compilation,
+    chunk,
+    projectPackageJson,
+  }: {
+    compilation: Compilation
+    chunk: Chunk
+    projectPackageJson?: any
+  }) {
+    // TODO: more reliable way to get all modules
+    const modules = compilation.chunkGraph
+      .getChunkModules(chunk)
+      .flatMap((mod) =>
+        mod instanceof ConcatenatedModule ? (mod as ConcatenatedModule).modules : mod
+      )
+
+    const externalModules = modules.filter(
+      (dep): dep is ExternalModule => dep instanceof ExternalModule
+    )
+
+    const requires = compact(
+      await Promise.all(
+        externalModules.map(async ({ userRequest, externalType }) => {
+          const version = getPackageDepVersion((await projectPackageJson)?.data, userRequest)
+
+          let packageVersion: string | undefined
+
+          if (version) {
+            try {
+              packageVersion = require(userRequest).version
+            } catch (e) {
+              this.logger.log(
+                `could not find installed package "${userRequest}":`,
+                (e as Error)?.message || e
+              )
+            }
+          }
+
+          const resolved = this.resolvedExternals.get(userRequest)
+
+          return this.requireResolver({
+            name: userRequest,
+            externalType,
+            version,
+            packageVersion,
+            url: resolved?.url,
+          })
+        })
+      )
+    )
+
+    return requires
   }
 
   getRuntimeName() {
@@ -753,23 +802,27 @@ export class MonkeyWebpackPlugin {
    * @returns The converted request, or the original request if it doesn't contain a URL.
    * @example
    * ```ts
-   * resolveExternalWithUrl("...", "var foo@https://example.com") // => "var foo"
-   * resolveExternalWithUrl("...", "foo@https://example.com") // => "foo"
-   * resolveExternalWithUrl("...", "https://example.com") // => "EXTERNAL("https://example.com")"
-   * resolveExternalWithUrl("...", "foo") // => "foo" (not resolved)
+   * resolveExternalWithUrl("zzz", "var foo@https://example.com") // => "var foo"
+   * resolveExternalWithUrl("zzz", "foo@https://example.com") // => "foo"
+   * resolveExternalWithUrl("zzz", "https://example.com") // => "EXTERNAL("https://example.com")"
+   * resolveExternalWithUrl("zzz", "foo") // => "foo" (not resolved)
    * ```
    */
   resolveExternalWithUrl(userRequest: string, value: ExternalItemValue): ExternalItemValue {
     const resolveAndConvert = (strValue: string) => {
-      const resolved = resolveUrlExternal(userRequest, strValue)
+      const result = resolveUrlExternal(strValue)
 
-      if (!resolved) {
+      if (!result) {
         return strValue
       }
 
-      this.resolvedExternals.set(userRequest, resolved)
+      this.resolvedExternals.set(userRequest, {
+        ...result,
+        userRequest,
+        used: false,
+      })
 
-      return resolved.value
+      return result.value
     }
 
     if (isString(value)) {

@@ -11,7 +11,7 @@ import { log } from "./log"
 
 interface MonkeyGlobal extends MonkeyInjection {
   GM_fetch: typeof GM_fetch
-  loadScript: (url: string) => Promise<unknown>
+  loadScripts: (scripts: { url: string }[]) => Promise<unknown>
   miniCssExtractHmr: (moduleId: string, options: object) => () => void
   styleLoaderInsertStyleElement: (options: object) => HTMLStyleElement
 }
@@ -27,7 +27,7 @@ declare const __MK_INJECTION__: MonkeyInjection
 window.__MK_GLOBAL__ = {
   ...__MK_INJECTION__,
   GM_fetch,
-  loadScript,
+  loadScripts,
   miniCssExtractHmr,
   styleLoaderInsertStyleElement,
 }
@@ -66,7 +66,7 @@ export async function loadUserscript(script: UserscriptInfo) {
   log("Loading script:", script.name)
 
   await Promise.all([
-    loadScript(script.url),
+    loadScripts([...script.requires.map((url) => ({ url })), script]),
 
     // when using mini-css-extract-plugin, we need to manually load css files
     ...script.assets.map((asset) => {
@@ -79,9 +79,14 @@ export async function loadUserscript(script: UserscriptInfo) {
   loadedScripts.push(script)
 }
 
-export async function loadScript(url: string) {
-  const content = await GM_fetch(url).then((res) => res.text())
-  return eval(content)
+export async function loadScripts(scripts: { url: string }[]) {
+  const contents = await Promise.all(
+    scripts.map(({ url }) => GM_fetch(url).then((res) => res.text()))
+  )
+
+  contents.forEach((content) => {
+    eval(content)
+  })
 }
 
 module.hot?.dispose((data: any) => {

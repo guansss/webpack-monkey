@@ -29,7 +29,11 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
       port: 9526,
     },
     externals: {
-      lodash: "_",
+      ...(isServing
+        ? null
+        : {
+            lodash: "_",
+          }),
     },
     output: {
       path: path.resolve(__dirname, "dist"),

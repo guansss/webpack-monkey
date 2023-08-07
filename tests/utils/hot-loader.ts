@@ -24,14 +24,21 @@ const loader: LoaderDefinition<HotLoaderOptions> = function (source) {
 
 export default loader
 
-export function createHotLoaderRule(options: Omit<HotLoaderOptions, "replacers">) {
+export function createHotLoaderRule(
+  options: Omit<HotLoaderOptions, "replacers"> & {
+    replacers?: Record<string, SourceReplacer | undefined>
+  }
+) {
+  const replacers = new Function() as HotLoaderOptions["replacers"]
+  Object.assign(replacers, options.replacers)
+
   return {
     test: (file) => file.includes("tests/cases") || file.includes("tests\\cases"),
     loader: __filename,
     enforce: "pre",
     options: {
       ...options,
-      replacers: new Function() as HotLoaderOptions["replacers"],
+      replacers,
     } satisfies HotLoaderOptions,
   } satisfies RuleSetRule
 }
