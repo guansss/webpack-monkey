@@ -28,8 +28,14 @@ it("detects dev server's port when not defined", async () => {
     },
   })
 
-  await usingDevServer(newConfigWithPort, async (server) => {
-    expect(plugin.serveMode).toBe(true)
-    expect(plugin.serverInfo!.port).toBe(__PORT__)
-  })
+  await usingDevServer(
+    {
+      config: newConfigWithPort,
+      noCompile: true,
+    },
+    async (server) => {
+      expect(plugin.serveMode).toBe(true)
+      expect(plugin.serverInfo!.port).toBe(__PORT__)
+    }
+  )
 })

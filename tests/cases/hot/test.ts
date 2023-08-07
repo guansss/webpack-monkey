@@ -32,10 +32,10 @@ const config = withCommonConfig({
 it("build", () => testBuild(monkeyWebpack()(withMiniCssExtract(config))))
 
 describe("hot reload", () => {
-  it.skip("modules", async () => {
+  it.browser("modules", async () => {
     await usingDevServerHot(
-      monkeyWebpack()(withMiniCssExtract(config)),
-      async (server, replacers) => {
+      { config: monkeyWebpack()(withMiniCssExtract(config)) },
+      async (server, { replacers }) => {
         await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
         await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)
 
@@ -80,8 +80,8 @@ describe("hot reload", () => {
     // ["css with style-loader", withStyleLoader()],
   ])("%s", async (_, cssConfig) => {
     await usingDevServerHot(
-      monkeyWebpack()(merge({}, config, cssConfig)),
-      async (server, replacers) => {
+      { config: monkeyWebpack()(merge({}, config, cssConfig)) },
+      async (server, { replacers }) => {
         await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
         await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)
         await page.waitForSelector(".index1")

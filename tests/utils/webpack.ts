@@ -6,7 +6,7 @@ import postcssPresetEnv from "postcss-preset-env"
 import webpack from "webpack"
 import WebpackDevServer from "webpack-dev-server"
 import { merge } from "webpack-merge"
-import { FakeLoaderOptions, createFakeLoaderRule } from "./fake-update-loader"
+import { HotLoaderOptions, createHotLoaderRule } from "./hot-loader"
 
 export async function testBuild(config: webpack.Configuration) {
   config = {
@@ -84,39 +84,87 @@ export function compilerCompile(compiler: webpack.Compiler) {
   })
 }
 
+interface UsingDevServerOptions {
+  config: webpack.Configuration
+  noCompile?: boolean
+}
+
 export async function usingDevServer(
-  config: webpack.Configuration,
+  { config, noCompile }: UsingDevServerOptions,
   fn: (server: WebpackDevServer) => Promise<void>
 ) {
+  config = merge({}, config, {
+    mode: "development",
+  })
+
+  if (noCompile) {
+    config = merge({}, config, {
+      devServer: {
+        hot: false,
+      },
+    })
+  }
+
   const compiler = webpack(config)
+
+  if (noCompile) {
+    preventCompilation(compiler)
+  }
+
   const server = new WebpackDevServer(config.devServer, compiler)
 
   try {
-    await server.start()
+    await server.start().catch((e) => {
+      if (!(e instanceof CompilationPrevention)) {
+        throw e
+      }
+    })
     await fn(server)
   } finally {
-    await server.stop().catch(console.warn)
     await compilerClose(compiler)
+    await server.stop().catch(console.warn)
   }
 }
 
 export async function usingDevServerHot(
-  config: webpack.Configuration,
-  fn: (server: WebpackDevServer, replacers: FakeLoaderOptions["replacers"]) => Promise<void>
+  options: UsingDevServerOptions,
+  fn: (server: WebpackDevServer, hotLoaderOptions: HotLoaderOptions) => Promise<void>
 ) {
-  const fakeLoaderOptions: FakeLoaderOptions = {
-    replacers: {},
-  }
+  let { config } = options
+
+  const hotLoaderRule = createHotLoaderRule({})
 
   config = merge({}, config, {
     module: {
-      rules: [createFakeLoaderRule(fakeLoaderOptions)],
+      rules: [hotLoaderRule],
     },
   })
 
-  return usingDevServer(config, (server) => {
-    return fn(server, fakeLoaderOptions.replacers)
+  config = merge({}, config, {})
+
+  return usingDevServer({ ...options, config }, (server) => {
+    return fn(server, hotLoaderRule.options)
   })
+}
+
+class CompilationPrevention extends Error {
+  constructor() {
+    super("compilation prevented as expected.")
+    this.stack = undefined
+  }
+}
+
+export function preventCompilation(compiler: webpack.Compiler) {
+  const flag = "__preventCompilation__"
+
+  if ((compiler.compile as any)[flag]) {
+    return
+  }
+
+  compiler.compile = (callback) => {
+    callback(new CompilationPrevention())
+  }
+  ;(compiler.compile as any)[flag] = true
 }
 
 export function withCommonConfig(...config: webpack.Configuration[]) {

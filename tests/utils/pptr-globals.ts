@@ -1,6 +1,6 @@
 import type { Browser, Page, Target } from "puppeteer"
 import { colorize } from "../../src/node/color"
-import type { SourceReplacer } from "./fake-update-loader"
+import type { SourceReplacer } from "./hot-loader"
 
 declare global {
   interface Window {
