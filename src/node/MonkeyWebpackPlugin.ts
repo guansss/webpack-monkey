@@ -232,8 +232,12 @@ export class MonkeyWebpackPlugin {
 
     this.serveMode = true
 
-    const { port } = server.server!.address() as import("net").AddressInfo
+    const port = +(server.options.port || NaN)
     const host = server.options.host || "localhost"
+
+    if (isNaN(port)) {
+      throw new Error(`[${this.constructor.name}] Invalid port: ${server.options.port}`)
+    }
 
     this.serverInfo = {
       host,
@@ -251,11 +255,8 @@ export class MonkeyWebpackPlugin {
       name: undefined,
     }).apply(compiler)
 
-    // re-run the compilation to apply the setup changes
-    server.invalidate()
-
     this.infraLogger.info(
-      `[webpack-monkey] Start your development by installing the dev script: ${colorize(
+      `Dev script hosted at: ${colorize(
         "cyan",
         `http://${this.serverInfo.host}:${this.serverInfo.port}/${DEV_SCRIPT}`
       )}`

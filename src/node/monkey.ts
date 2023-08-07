@@ -66,8 +66,10 @@ export function monkeyWebpack(options?: MonkeyWebpackOptions) {
             },
           },
 
-          onListening: (server) => {
+          setupMiddlewares: (middlewares, server) => {
             plugin["setupServeMode"](server)
+
+            return config.devServer?.setupMiddlewares?.(middlewares, server) ?? middlewares
           },
         },
 
