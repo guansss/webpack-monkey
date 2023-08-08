@@ -3,15 +3,15 @@
   "version": "0.1.0",
   "description": "",
   "scripts": {
-    "setup": "node ./scripts/setup.js",
-    "playground": "webpack serve --config=./playground/webpack.config.ts",
-    "playground:build": "webpack --config=./playground/webpack.config.ts",
+    "setup": "node scripts/setup.js",
+    "playground": "webpack serve --config=playground/webpack.config.ts",
+    "playground:build": "webpack --config=playground/webpack.config.ts",
     "clean": "rimraf -g ./dist/*",
-    "build": "npm run clean && npm run build:node && npm run build:client",
-    "build:node": "tsc -p tsconfig.build-node.json && node ./scripts/rename-shared.js node",
-    "build:client": "tsc -p tsconfig.build-client.json && node ./scripts/rename-shared.js client",
-    "pack": "ts-node ./scripts/prepack.ts && cd ./dist && npm pack",
-    "update-example": "npm run pack && cd .. && npm install ./dist/webpack-monkey-0.1.0.tgz -w @example/hello-world",
+    "build": "npm run clean && npm run build:node && npm run build:client && ts-node scripts/postbuild.ts",
+    "build:node": "tsc -p tsconfig.build-node.json && ts-node scripts/postbuild-target.ts node",
+    "build:client": "tsc -p tsconfig.build-client.json && ts-node scripts/postbuild-target.ts client",
+    "pack": "cd dist && npm pack",
+    "update-example": "npm run pack && cd .. && npm install dist/webpack-monkey-0.1.0.tgz -w @example/hello-world",
     "test": "jest --runInBand",
     "test:u": "npm run test -- --updateSnapshot",
     "test:h": "cross-env HEADLESS=false npm run test"
@@ -23,9 +23,9 @@
       "require": "./lib/index.js"
     },
     "./client": {
-      "types": "./types/client/exports.d.ts",
-      "import": "./lib/client/exports.js",
-      "require": "./lib/client/exports.js"
+      "types": "./types/client/index.d.ts",
+      "import": "./lib/client/index.js",
+      "require": "./lib/client/index.js"
     }
   },
   "files": [

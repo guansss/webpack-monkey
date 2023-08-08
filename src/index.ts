@@ -1,9 +1,3 @@
-declare global {
-  namespace webpack {
-    interface Hot {
-      monkeyReload(options?: import("./client/hmr").MonkeyReloadOptions): void
-    }
-  }
-}
+/// <reference path="./env.d.ts" />
 
-export * from "./node/monkey"
+export * from "./node/index"
