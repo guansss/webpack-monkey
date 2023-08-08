@@ -2,9 +2,15 @@ import { add } from "lodash"
 import { a } from "./a"
 import { b } from "./b"
 import "./style.css"
-import mitt from "mitt@https://unpkg.com/mitt/dist/mitt.umd.js"
+import "https://unpkg.com/mitt/dist/mitt.umd.js"
 
-module.hot?.monkeyReload()
+declare global {
+  const mitt: typeof import("mitt").default
+}
+
+if (module.hot) {
+  module.hot.monkeyReload()
+}
 
 mitt()
 
