@@ -126,13 +126,7 @@ function createRequireResolver({
       return requireOpt[name]
     }
 
-    const lockVersions = isString(requireOpt) ? false : !!requireOpt?.lockVersions
-
-    if (lockVersions && !packageVersion) {
-      throw new Error(
-        `"lockVersions" is enabled but the version of "${name}" could not be found, probably because this package is not installed as a direct dependency.`
-      )
-    }
+    const lockVersions = isString(requireOpt) || !(requireOpt?.lockVersions === false)
 
     const cdnProvider = isString(requireOpt)
       ? requireOpt
@@ -145,10 +139,7 @@ function createRequireResolver({
     }
 
     let versionDef = lockVersions ? packageVersion : version
-
-    if (versionDef) {
-      versionDef = `@${versionDef}`
-    }
+    versionDef = versionDef ? `@${versionDef}` : ""
 
     return encodeURI(`${baseUrl}/${name}${versionDef}`)
   }
