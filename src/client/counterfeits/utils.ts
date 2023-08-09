@@ -1,9 +1,3 @@
-export function assertXHRMethod(method: string): asserts method is "GET" | "POST" | "HEAD" {
-  if (!["GET", "POST", "HEAD"].includes(method.toUpperCase())) {
-    throw new Error(`Unsupported XHR method: ${method}`)
-  }
-}
-
 export function parseHeaders(headers: string): Record<string, string> {
   return headers
     .split("\n")

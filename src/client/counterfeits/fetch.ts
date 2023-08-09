@@ -1,48 +1,33 @@
-import { isPlainObject } from "lodash-es"
-import { assertXHRMethod, parseHeaders } from "./utils"
+import { parseHeaders } from "./utils"
 
-type CounterfeitFetch = (
-  input: RequestInfo | URL,
-  init?: CounterfeitRequestInit
-) => Promise<Response>
-
-interface CounterfeitRequestInit extends RequestInit {
-  _mk?: {
-    responseType?: "text" | "json"
-  }
+interface GM_fetchRequestInit extends RequestInit {
+  _gm?: GM_xmlhttpRequestParams
 }
 
-export const GM_fetch: CounterfeitFetch = async (
-  input,
-  { _mk, method = "GET", headers, body, signal } = {}
-) => {
-  assertXHRMethod(method)
+export const GM_fetch: (
+  input: RequestInfo | URL,
+  init?: GM_fetchRequestInit
+) => Promise<Response> = async (input, { _gm, method, headers, body, signal } = {}) => {
+  let normalizedHeaders: Record<string, string>
 
-  if (body && typeof body !== "string") {
-    throw new Error("GM_fetch only supports string body")
-  }
-
-  const responseType = _mk?.responseType ?? "text"
-
-  headers ||= {}
-
-  // ensure headers is a plain object
-  if (!isPlainObject(headers)) {
-    if (Array.isArray(headers)) {
-      headers = Object.fromEntries(headers)
-    } else {
-      const h: Record<string, string> = {}
-      ;(headers as Headers).forEach((value, name) => (h[name] = value))
-      headers = h
-    }
+  if (headers instanceof Headers) {
+    normalizedHeaders = {}
+    headers.forEach((value, name) => (normalizedHeaders[name] = value))
+  } else if (Array.isArray(headers)) {
+    normalizedHeaders = Object.fromEntries(headers)
+  } else {
+    normalizedHeaders = headers as Record<string, string>
   }
 
   const params: GM_xmlhttpRequestParams = {
     url: String(input),
     method,
-    responseType,
-    headers: headers as Record<string, string>,
-    data: body ?? undefined,
+    headers: normalizedHeaders,
+
+    // Tampermonkey's docs say that the data should be a string, but we're not gonna validate it
+    data: body as any,
+
+    ..._gm,
   }
 
   return new Promise((resolve, reject) => {

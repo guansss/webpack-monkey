@@ -1,8 +1,7 @@
 import mitt, { Emitter } from "mitt"
 import { log } from "../log"
-import { assertXHRMethod } from "./utils"
 
-type CounterfeitXHR = Pick<
+type GM_XHRShape = Pick<
   XMLHttpRequest,
   | "open"
   | "withCredentials"
@@ -33,31 +32,31 @@ export interface GM_XHR extends Emitter<GM_XHREvents> {}
  * Current use cases:
  * - /dev/client/socket.ts
  */
-export class GM_XHR implements CounterfeitXHR {
+export class GM_XHR implements GM_XHRShape {
   _params: GM_xmlhttpRequestParams = { url: "" }
   _response?: GM_xmlhttpRequestResponse
 
   // note: this is ignored
   withCredentials = false
 
-  timeout: CounterfeitXHR["timeout"] = 0
-  ontimeout: CounterfeitXHR["ontimeout"] = null
-  onreadystatechange: CounterfeitXHR["onreadystatechange"] = null
-  onload: CounterfeitXHR["onload"] = null
+  timeout: GM_XHRShape["timeout"] = 0
+  ontimeout: GM_XHRShape["ontimeout"] = null
+  onreadystatechange: GM_XHRShape["onreadystatechange"] = null
+  onload: GM_XHRShape["onload"] = null
 
-  get readyState(): CounterfeitXHR["readyState"] {
+  get readyState(): GM_XHRShape["readyState"] {
     return this._response?.readyState ?? 0
   }
 
-  get status(): CounterfeitXHR["status"] {
+  get status(): GM_XHRShape["status"] {
     return this._response?.status ?? 0
   }
 
-  get response(): CounterfeitXHR["response"] {
+  get response(): GM_XHRShape["response"] {
     return this._response?.response ?? ""
   }
 
-  get responseText(): CounterfeitXHR["responseText"] {
+  get responseText(): GM_XHRShape["responseText"] {
     return this._response?.responseText ?? ""
   }
 
@@ -70,8 +69,6 @@ export class GM_XHR implements CounterfeitXHR {
     if (arguments[2] === false) {
       throw new Error("Synchronous XHR is not supported")
     }
-
-    assertXHRMethod(method)
 
     this._params.method = method as any
     this._params.url = url.toString()

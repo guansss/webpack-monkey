@@ -44,7 +44,7 @@ declare function GM_download(details: {
 
 declare interface GM_xmlhttpRequestParams {
   // one of GET, HEAD, POST
-  method?: "GET" | "HEAD" | "POST"
+  method?: string
 
   // the destination URL
   url: string
