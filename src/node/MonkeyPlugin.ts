@@ -50,33 +50,40 @@ import {
 
 const { RawSource, ConcatSource } = sources
 
-type RequireResolver = (args: {
-  name: string
-  externalType: string
-  version?: string
-  packageVersion?: string
-  url?: string
-}) => MaybePromise<string | undefined>
+interface OptionFunctionContext {
+  logger: WebpackLogger | Console
+}
+
+type RequireResolver = (
+  arg: {
+    name: string
+    externalType: string
+    version?: string
+    packageVersion?: string
+    url?: string
+  },
+  context: OptionFunctionContext
+) => MaybePromise<string | undefined>
 
 type CdnProvider = "jsdelivr" | "unpkg"
 
 type MetaResolver = (
-  args: { entryName: string; entry: string },
-  context: MonkeyWebpackPlugin
+  arg: { entryName: string; entry: string },
+  context: OptionFunctionContext
 ) => MaybePromise<string | undefined>
 type MetaLoader = (
-  args: { file: string },
-  context: MonkeyWebpackPlugin
+  arg: { file: string },
+  context: OptionFunctionContext
 ) => MaybePromise<UserscriptMeta>
 type metaTransformer = (
-  meta: UserscriptMeta,
-  context: MonkeyWebpackPlugin
+  arg: { meta: UserscriptMeta },
+  context: OptionFunctionContext
 ) => MaybePromise<UserscriptMeta>
 
 type WebpackLogger = Compilation["logger"]
 type EntryDependency = ReturnType<(typeof EntryPlugin)["createDependency"]>
 
-export interface MonkeyWebpackPluginOptions {
+export interface MonkeyPluginOptions {
   require?:
     | CdnProvider
     | RequireResolver
@@ -86,12 +93,14 @@ export interface MonkeyWebpackPluginOptions {
       } & Record<string, string>)
   meta?: {
     resolve?: string | string[] | MetaResolver
-    loader?: MetaLoader
+    load?: MetaLoader
     transform?: metaTransformer
   }
   devScript?: {
-    meta?: Partial<UserscriptMeta> | ((arg: { meta: UserscriptMeta }) => UserscriptMeta)
-    transform?: (content: string) => string
+    meta?:
+      | Partial<UserscriptMeta>
+      | ((arg: { meta: UserscriptMeta }, context: OptionFunctionContext) => UserscriptMeta)
+    transform?: (arg: { content: string }, context: OptionFunctionContext) => string
   }
   debug?: boolean
 }
@@ -110,13 +119,13 @@ const cdnProviders: Record<CdnProvider, string> = {
 function createRequireResolver({
   // don't confuse with the `require()` function
   require: requireOpt,
-}: MonkeyWebpackPluginOptions): RequireResolver {
-  return (args) => {
+}: MonkeyPluginOptions): RequireResolver {
+  return (arg, context) => {
     if (typeof requireOpt === "function") {
-      return requireOpt(args)
+      return requireOpt(arg, context)
     }
 
-    const { name, version, packageVersion, url } = args
+    const { name, version, packageVersion, url } = arg
 
     if (url) {
       return url
@@ -145,7 +154,7 @@ function createRequireResolver({
   }
 }
 
-function createMetaResolver({ meta: { resolve } = {} }: MonkeyWebpackPluginOptions): MetaResolver {
+function createMetaResolver({ meta: { resolve } = {} }: MonkeyPluginOptions): MetaResolver {
   if (typeof resolve === "function") {
     return resolve
   }
@@ -176,9 +185,9 @@ function createMetaResolver({ meta: { resolve } = {} }: MonkeyWebpackPluginOptio
   }
 }
 
-function createMetaLoader({ meta: { loader } = {} }: MonkeyWebpackPluginOptions): MetaLoader {
-  if (typeof loader === "function") {
-    return loader
+function createMetaLoader({ meta: { load } = {} }: MonkeyPluginOptions): MetaLoader {
+  if (typeof load === "function") {
+    return load
   }
 
   return async ({ file }) => {
@@ -216,10 +225,10 @@ export interface ResolvedExternal {
   used: boolean
 }
 
-export class MonkeyWebpackPlugin {
+export class MonkeyPlugin {
   compiler?: Compiler
 
-  options: MonkeyWebpackPluginOptions
+  options: MonkeyPluginOptions
   requireResolver: RequireResolver
   metaResolver: MetaResolver
   metaLoader: MetaLoader
@@ -233,12 +242,12 @@ export class MonkeyWebpackPlugin {
 
   resolvedExternals = new Map<string, ResolvedExternal>()
 
-  logger: WebpackLogger | typeof console = console
-  infraLogger: WebpackLogger | typeof console = console
+  logger: WebpackLogger | Console = console
+  infraLogger: WebpackLogger | Console = console
 
   fileCache = new Map<string, Promise<string>>()
 
-  constructor(options: MonkeyWebpackPluginOptions = {}) {
+  constructor(options: MonkeyPluginOptions = {}) {
     this.options = options
     this.requireResolver = createRequireResolver(options)
     this.metaResolver = createMetaResolver(options)
@@ -289,32 +298,30 @@ export class MonkeyWebpackPlugin {
 
   apply(compiler: Compiler) {
     this.compiler = compiler
-    this.infraLogger = compiler.getInfrastructureLogger(MonkeyWebpackPlugin.name)
+    this.infraLogger = compiler.getInfrastructureLogger(MonkeyPlugin.name)
 
-    compiler.resolverFactory.hooks.resolver
-      .for("normal")
-      .tap(MonkeyWebpackPlugin.name, (resolver) => {
-        resolver.hooks.result.tap(MonkeyWebpackPlugin.name, (result, ctx) => {
-          // redirect to the patching scripts in order to bypass CSP when hot reloading CSS
-          if (
-            // expects: "<project>/node_modules/mini-css-extract-plugin/dist/hmr/hotModuleReplacement.js"
-            result.path &&
-            result.path.includes("mini-css-extract-plugin") &&
-            result.path.includes("hotModuleReplacement.js")
-          ) {
-            result.path = require.resolve("./deps/mini-css-extract-hmr.js")
-          }
-          if (
-            // expects: "<project>/node_modules/style-loader/dist/runtime/insertStyleElement.js"
-            result.path &&
-            result.path.includes("style-loader") &&
-            result.path.includes("insertStyleElement.js")
-          ) {
-            result.path = require.resolve("./deps/style-loader-insertStyleElement.js")
-          }
-          return result
-        })
+    compiler.resolverFactory.hooks.resolver.for("normal").tap(MonkeyPlugin.name, (resolver) => {
+      resolver.hooks.result.tap(MonkeyPlugin.name, (result, ctx) => {
+        // redirect to the patching scripts in order to bypass CSP when hot reloading CSS
+        if (
+          // expects: "<project>/node_modules/mini-css-extract-plugin/dist/hmr/hotModuleReplacement.js"
+          result.path &&
+          result.path.includes("mini-css-extract-plugin") &&
+          result.path.includes("hotModuleReplacement.js")
+        ) {
+          result.path = require.resolve("./deps/mini-css-extract-hmr.js")
+        }
+        if (
+          // expects: "<project>/node_modules/style-loader/dist/runtime/insertStyleElement.js"
+          result.path &&
+          result.path.includes("style-loader") &&
+          result.path.includes("insertStyleElement.js")
+        ) {
+          result.path = require.resolve("./deps/style-loader-insertStyleElement.js")
+        }
+        return result
       })
+    })
 
     compiler.hooks.compilation.tap(
       this.constructor.name,
@@ -372,7 +379,7 @@ export class MonkeyWebpackPlugin {
               let meta = await this.metaLoader({ file: metaFile }, this)
 
               if (this.metaTransformer) {
-                meta = await this.metaTransformer(meta, this)
+                meta = await this.metaTransformer({ meta }, this)
               }
 
               const userscript: Omit<UserscriptInfo, "url"> = {
@@ -650,7 +657,7 @@ export class MonkeyWebpackPlugin {
     }
 
     if (isFunction(userDefinedMeta)) {
-      meta = userDefinedMeta({ meta })
+      meta = userDefinedMeta({ meta }, this)
     } else if (isObject(userDefinedMeta)) {
       meta = { ...meta, ...userDefinedMeta }
     }
@@ -671,7 +678,7 @@ export class MonkeyWebpackPlugin {
     content = generateMetaBlock("", meta) + "\n\n" + content
 
     if (transform) {
-      content = transform(content)
+      content = transform({ content }, this)
     }
 
     return content
@@ -717,13 +724,16 @@ export class MonkeyWebpackPlugin {
 
           const resolved = this.resolvedExternals.get(userRequest)
 
-          return this.requireResolver({
-            name: userRequest,
-            externalType,
-            version,
-            packageVersion,
-            url: resolved?.url,
-          })
+          return this.requireResolver(
+            {
+              name: userRequest,
+              externalType,
+              version,
+              packageVersion,
+              url: resolved?.url,
+            },
+            this
+          )
         })
       )
     )

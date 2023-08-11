@@ -6,22 +6,22 @@ import { parentUntil } from "../shared/utils"
 
 type TerserPluginOptions = ConstructorParameters<typeof TerserPlugin>[0]
 
-export interface MonkeyWebpackMinimizerOptions {
+export interface MonkeyMinimizerOptions {
   terserPluginOptions?: TerserPluginOptions
   beautify?: {
     prettier?: boolean
   }
 }
 
-export class MonkeyWebpackMinimizer extends TerserPlugin {
+export class MonkeyMinimizer extends TerserPlugin {
   // TerserPlugin already defines this.options, we use a different name
-  mkOptions: MonkeyWebpackMinimizerOptions
+  mkOptions: MonkeyMinimizerOptions
 
   logger = console
 
   prettierConfig?: object
 
-  constructor(options: MonkeyWebpackMinimizerOptions = {}) {
+  constructor(options: MonkeyMinimizerOptions = {}) {
     super({
       ...options.terserPluginOptions,
       parallel: false, // TODO: figure out why I set this to false in the past
@@ -86,8 +86,8 @@ export class MonkeyWebpackMinimizer extends TerserPlugin {
   override apply(compiler: Compiler): void {
     super.apply(compiler)
 
-    compiler.hooks.compilation.tap(MonkeyWebpackMinimizer.name, (compilation) => {
-      this.logger = compilation.getLogger(MonkeyWebpackMinimizer.name) as any
+    compiler.hooks.compilation.tap(MonkeyMinimizer.name, (compilation) => {
+      this.logger = compilation.getLogger(MonkeyMinimizer.name) as any
     })
   }
 

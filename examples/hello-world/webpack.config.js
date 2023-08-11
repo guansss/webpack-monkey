@@ -1,7 +1,7 @@
 const path = require("path")
-const { webpackMonkey } = require("webpack-monkey")
+const { monkey } = require("webpack-monkey")
 
-module.exports = webpackMonkey({
+module.exports = monkey({
   entry: "./src/index.js",
   output: {
     filename: "hello-word.user.js",

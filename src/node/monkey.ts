@@ -1,24 +1,25 @@
 import { isFunction, isNil, isObject, isPlainObject } from "lodash"
 import { Configuration } from "webpack"
 import { merge } from "webpack-merge"
-import { MonkeyWebpackMinimizer, MonkeyWebpackMinimizerOptions } from "./MonkeyWebpackMinimizer"
-import { MonkeyWebpackPlugin, MonkeyWebpackPluginOptions } from "./MonkeyWebpackPlugin"
+import { MonkeyMinimizer, MonkeyMinimizerOptions } from "./MonkeyMinimizer"
+import { MonkeyPlugin, MonkeyPluginOptions } from "./MonkeyPlugin"
 
-interface MonkeyWebpackOptions extends MonkeyWebpackPluginOptions, MonkeyWebpackMinimizerOptions {}
+interface MonkeyOptions extends MonkeyPluginOptions, MonkeyMinimizerOptions {}
 
-export function webpackMonkey({
+export function monkey({
   monkey: options,
   ...config
 }: Configuration & {
-  monkey?: MonkeyWebpackOptions
+  monkey?: MonkeyOptions
 } = {}): Configuration {
-  const plugin = new MonkeyWebpackPlugin(options)
+  const plugin = new MonkeyPlugin(options)
 
   const userDefinedRuntimeChunk = config?.optimization?.runtimeChunk
 
   if (!isNil(userDefinedRuntimeChunk)) {
     console.warn(
-      `MonkeyWebpackPlugin: the value of "optimization.runtimeChunk" will be ignored. It will be overwritten to "single" when serving, and "false" when building.`
+      MonkeyPlugin.name +
+        `: the value of "optimization.runtimeChunk" will be ignored. It will be overwritten to "single" when serving, and "false" when building.`
     )
   }
 
@@ -29,7 +30,7 @@ export function webpackMonkey({
     !isPlainObject(userDefinedExternals) &&
     !isFunction(userDefinedExternals)
   ) {
-    throw new Error(`MonkeyWebpackPlugin: "externals" must be an object or a function.`)
+    throw new Error(MonkeyPlugin.name + `: "externals" must be an object or a function.`)
   }
 
   let devClient = config?.devServer?.client
@@ -81,7 +82,7 @@ export function webpackMonkey({
         runtimeChunk: {
           name: () => plugin.getRuntimeName(),
         },
-        minimizer: [new MonkeyWebpackMinimizer(options)],
+        minimizer: [new MonkeyMinimizer(options)],
 
         // by default this is false in development mode, we turn it on to allow the plugin to
         // detect unexpected named/default imports of unnamed external modules and then warn the user

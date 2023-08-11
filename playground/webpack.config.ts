@@ -3,7 +3,7 @@ import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import path from "path"
 import postcssPresetEnv from "postcss-preset-env"
 import { DefinePlugin } from "webpack"
-import { monkeyWebpack } from "../src"
+import { monkey } from "../src"
 
 export default (env: Record<string, string | boolean>, { mode }: { mode: string }) => {
   const isServing = !!env.WEBPACK_SERVE
@@ -13,7 +13,7 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
     absolute: true,
   })
 
-  return webpackMonkey({
+  return monkey({
     monkey: {
       debug: true,
       devScript: {
