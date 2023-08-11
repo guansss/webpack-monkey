@@ -1,6 +1,6 @@
 import { it } from "@jest/globals"
 import path from "path"
-import { monkeyWebpack } from "../../../src"
+import { webpackMonkey } from "../../../src"
 import { testBuild, usingDevServer, withCommonConfig } from "../../utils/webpack"
 import { MonkeyWebpackPlugin } from "../../../src/node/MonkeyWebpackPlugin"
 import { merge } from "webpack-merge"
@@ -12,10 +12,10 @@ const config = withCommonConfig({
   },
 })
 
-it("build", () => testBuild(monkeyWebpack()(config)))
+it("build", () => testBuild(webpackMonkey(config)))
 
 it("detects dev server's port when not defined", async () => {
-  const newConfig = monkeyWebpack()(config)
+  const newConfig = webpackMonkey(config)
   const plugin = newConfig.plugins!.find(
     (plugin): plugin is MonkeyWebpackPlugin => plugin instanceof MonkeyWebpackPlugin
   )!

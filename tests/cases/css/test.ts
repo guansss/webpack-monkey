@@ -1,6 +1,6 @@
 import { it } from "@jest/globals"
 import path from "path"
-import { monkeyWebpack } from "../../../src"
+import { webpackMonkey } from "../../../src"
 import { testBuild, withCommonConfig, withMiniCssExtract } from "../../utils/webpack"
 
 const config = withCommonConfig(withMiniCssExtract(), {
@@ -10,4 +10,4 @@ const config = withCommonConfig(withMiniCssExtract(), {
   },
 })
 
-it("build", () => testBuild(monkeyWebpack()(config)))
+it("build", () => testBuild(webpackMonkey(config)))

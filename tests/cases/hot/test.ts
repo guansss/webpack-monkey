@@ -2,7 +2,7 @@ import path from "path"
 import { Page } from "puppeteer"
 import Server from "webpack-dev-server"
 import { merge } from "webpack-merge"
-import { monkeyWebpack } from "../../../src"
+import { webpackMonkey } from "../../../src"
 import { DEV_SCRIPT } from "../../../src/shared/constants"
 import { installWithTampermonkey } from "../../utils/tampermonkey"
 import {
@@ -29,12 +29,12 @@ const config = withCommonConfig({
   },
 })
 
-it("build", () => testBuild(monkeyWebpack()(withMiniCssExtract(config))))
+it("build", () => testBuild(webpackMonkey(withMiniCssExtract(config))))
 
 describe("hot reload", () => {
   it.browser("modules", async () => {
     await usingDevServerHot(
-      { config: monkeyWebpack()(withMiniCssExtract(config)) },
+      { config: webpackMonkey(withMiniCssExtract(config)) },
       async (server, { replacers }) => {
         await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
         await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)
@@ -80,7 +80,7 @@ describe("hot reload", () => {
     // ["css with style-loader", withStyleLoader()],
   ])("%s", async (_, cssConfig) => {
     await usingDevServerHot(
-      { config: monkeyWebpack()(merge({}, config, cssConfig)) },
+      { config: webpackMonkey(merge({}, config, cssConfig)) },
       async (server, { replacers }) => {
         await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
         await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)

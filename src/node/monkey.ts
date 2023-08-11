@@ -6,91 +6,94 @@ import { MonkeyWebpackPlugin, MonkeyWebpackPluginOptions } from "./MonkeyWebpack
 
 interface MonkeyWebpackOptions extends MonkeyWebpackPluginOptions, MonkeyWebpackMinimizerOptions {}
 
-export function monkeyWebpack(options?: MonkeyWebpackOptions) {
-  return (config: Configuration) => {
-    const plugin = new MonkeyWebpackPlugin(options)
+export function webpackMonkey({
+  monkey: options,
+  ...config
+}: Configuration & {
+  monkey?: MonkeyWebpackOptions
+} = {}): Configuration {
+  const plugin = new MonkeyWebpackPlugin(options)
 
-    const userDefinedRuntimeChunk = config?.optimization?.runtimeChunk
+  const userDefinedRuntimeChunk = config?.optimization?.runtimeChunk
 
-    if (!isNil(userDefinedRuntimeChunk)) {
-      console.warn(
-        `MonkeyWebpackPlugin: the value of "optimization.runtimeChunk" will be ignored. It will be overwritten to "single" when serving, and "false" when building.`
-      )
-    }
-
-    const userDefinedExternals = config?.externals
-
-    if (
-      !isNil(userDefinedExternals) &&
-      !isPlainObject(userDefinedExternals) &&
-      !isFunction(userDefinedExternals)
-    ) {
-      throw new Error(`MonkeyWebpackPlugin: "externals" must be an object or a function.`)
-    }
-
-    let devClient = config?.devServer?.client
-
-    if (!isObject(devClient)) {
-      devClient = {}
-    }
-
-    return merge(
-      {
-        devServer: {
-          hot: "only",
-        },
-        output: {
-          filename: "[name].user.js",
-        },
-      },
-      // ====================================================
-      config,
-      // ====================================================
-      {
-        plugins: [plugin],
-
-        devServer: {
-          webSocketServer: "sockjs",
-          client: {
-            ...devClient,
-            webSocketTransport: "sockjs",
-            webSocketURL: {
-              port: config?.devServer?.port,
-              ...(isObject(devClient.webSocketURL) ? devClient.webSocketURL : null),
-
-              protocol: "ws",
-
-              // TODO: SockJS will throw if the hostname is not a loopback address,
-              // maybe we can patch it to allow other hostnames e.g. "localhost"
-              hostname: "127.0.0.1",
-            },
-          },
-
-          setupMiddlewares: (middlewares, server) => {
-            plugin["setupServeMode"](server)
-
-            return config.devServer?.setupMiddlewares?.(middlewares, server) ?? middlewares
-          },
-        },
-
-        optimization: {
-          runtimeChunk: {
-            name: () => plugin.getRuntimeName(),
-          },
-          minimizer: [new MonkeyWebpackMinimizer(options)],
-
-          // by default this is false in development mode, we turn it on to allow the plugin to
-          // detect unexpected named/default imports of unnamed external modules and then warn the user
-          // TODO: this may lower the performance, maybe find a solution that doesn't require this option
-          usedExports: true,
-        },
-
-        externalsType: "var",
-
-        externals: (data, callback) => {
-          return plugin.resolveExternals(data, callback, userDefinedExternals as any)
-        },
-      }
+  if (!isNil(userDefinedRuntimeChunk)) {
+    console.warn(
+      `MonkeyWebpackPlugin: the value of "optimization.runtimeChunk" will be ignored. It will be overwritten to "single" when serving, and "false" when building.`
     )
   }
+
+  const userDefinedExternals = config?.externals
+
+  if (
+    !isNil(userDefinedExternals) &&
+    !isPlainObject(userDefinedExternals) &&
+    !isFunction(userDefinedExternals)
+  ) {
+    throw new Error(`MonkeyWebpackPlugin: "externals" must be an object or a function.`)
+  }
+
+  let devClient = config?.devServer?.client
+
+  if (!isObject(devClient)) {
+    devClient = {}
+  }
+
+  return merge(
+    {
+      devServer: {
+        hot: "only",
+      },
+      output: {
+        filename: "[name].user.js",
+      },
+    },
+    // ====================================================
+    config,
+    // ====================================================
+    {
+      plugins: [plugin],
+
+      devServer: {
+        webSocketServer: "sockjs",
+        client: {
+          ...devClient,
+          webSocketTransport: "sockjs",
+          webSocketURL: {
+            port: config?.devServer?.port,
+            ...(isObject(devClient.webSocketURL) ? devClient.webSocketURL : null),
+
+            protocol: "ws",
+
+            // TODO: SockJS will throw if the hostname is not a loopback address,
+            // maybe we can patch it to allow other hostnames e.g. "localhost"
+            hostname: "127.0.0.1",
+          },
+        },
+
+        setupMiddlewares: (middlewares, server) => {
+          plugin["setupServeMode"](server)
+
+          return config.devServer?.setupMiddlewares?.(middlewares, server) ?? middlewares
+        },
+      },
+
+      optimization: {
+        runtimeChunk: {
+          name: () => plugin.getRuntimeName(),
+        },
+        minimizer: [new MonkeyWebpackMinimizer(options)],
+
+        // by default this is false in development mode, we turn it on to allow the plugin to
+        // detect unexpected named/default imports of unnamed external modules and then warn the user
+        // TODO: this may lower the performance, maybe find a solution that doesn't require this option
+        usedExports: true,
+      },
+
+      externalsType: "var",
+
+      externals: (data, callback) => {
+        return plugin.resolveExternals(data, callback, userDefinedExternals as any)
+      },
+    }
+  )
 }

@@ -4,8 +4,8 @@ import { MapValues } from "../types/utils"
 import { WebpackModule, WebpackModuleId } from "../types/webpack"
 import { log } from "./log"
 
-type HotEventOf<T extends webpack.HotEvent["type"]> = HasType<OverrideIds<webpack.HotEvent>, T>
-type HasType<T, U> = T extends { type: U } ? T : never
+type HotEventOf<T extends webpack.HotEvent["type"]> = FilterByType<OverrideIds<webpack.HotEvent>, T>
+type FilterByType<T, U> = T extends { type: U } ? T : never
 
 // override the module ID's type `number` with `WebpackModuleId` because it's more accurate
 type OverrideIds<T extends webpack.HotEvent> = MapValues<

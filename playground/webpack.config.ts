@@ -13,7 +13,15 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
     absolute: true,
   })
 
-  return monkeyWebpack({ debug: true })({
+  return webpackMonkey({
+    monkey: {
+      debug: true,
+      devScript: {
+        meta: {
+          match: "http://localhost/*",
+        },
+      },
+    },
     mode: isServing ? "development" : "production",
     entry: Object.fromEntries(
       entryFiles.map((entryFile) => [path.basename(path.dirname(entryFile)), entryFile])
