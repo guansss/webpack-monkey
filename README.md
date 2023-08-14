@@ -19,10 +19,11 @@ The modern workflow also allows:
 
 ## Installation
 
-**This package is not published to npm yet. The followings are just for early demonstration.**
-
 ```sh
 npm install webpack-monkey
+
+# peer dependencies
+npm install webpack webpack-dev-server
 ```
 
 ## Quick start
@@ -46,7 +47,7 @@ The final project structure at a glance:
 
 ```sh
 npm init -y
-npm install webpack webpack-cli webpack-monkey
+npm install webpack webpack-cli webpack-dev-server webpack-monkey
 ```
 
 2. Create `src/index.js`:
@@ -119,7 +120,7 @@ Now try to change the message text in `GM_log`, and you'll see the new message p
 
 ### Build
 
-Run `npm run build`, the final userscript will be generated at `dist/hello.user.js`.
+Run `npm run build`, and the final userscript will be generated at `dist/hello.user.js`.
 
 The output will be like this:
 
