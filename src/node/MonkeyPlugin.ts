@@ -45,6 +45,7 @@ import {
   getPackageDepVersion,
   getPackageJson,
   getUnnamedUrlExternalErrorMessage,
+  pathSplit,
   resolveUrlExternal,
 } from "./utils"
 
@@ -713,12 +714,15 @@ export class MonkeyPlugin {
 
           if (version) {
             try {
-              packageVersion = require(userRequest).version
-            } catch (e) {
-              this.logger.log(
-                `could not find installed package "${userRequest}":`,
-                (e as Error)?.message || e
+              const entryPath = require.resolve(userRequest)
+              const segments = pathSplit(entryPath)
+              const packageJsonPath = path.join(
+                ...segments.slice(0, segments.indexOf("node_modules") + 2),
+                "package.json"
               )
+              packageVersion = require(packageJsonPath).version
+            } catch (e) {
+              this.logger.warn(`could not find installed package "${userRequest}":`, e)
             }
           }
 

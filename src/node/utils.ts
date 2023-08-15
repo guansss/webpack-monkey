@@ -28,6 +28,10 @@ export function getPackageJson(fs: Compilation["inputFileSystem"], context: stri
   })
 }
 
+export function pathSplit(path: string) {
+  return path.replace(/\\/g, "/").split("/")
+}
+
 export function traverseAndFindSource(
   source: unknown,
   cb: (source: sources.Source) => void | true
