@@ -1,3 +1,4 @@
+import { isFunction } from "lodash-es"
 import mitt from "mitt"
 import { overrideValue } from "../shared/patching"
 import { MapValues } from "../types/utils"
@@ -18,8 +19,7 @@ type HMREvents = {
 }
 
 export interface MonkeyReloadOptions {
-  ignore?: (string | RegExp)[]
-  filter?(id: WebpackModuleId): boolean
+  ignore?: (string | RegExp)[] | ((id: WebpackModuleId) => boolean)
 }
 
 const hmrEmitter = mitt<HMREvents>()
@@ -36,19 +36,18 @@ function monkeyModuleInterceptor(options: { module: WebpackModule }) {
   options.module.hot.monkeyReload = (opt) => monkeyReload(options.module, opt)
 }
 
-export function monkeyReload(
-  rootModule: WebpackModule,
-  { ignore, filter }: MonkeyReloadOptions = {}
-) {
+export function monkeyReload(rootModule: WebpackModule, { ignore }: MonkeyReloadOptions = {}) {
   if (!ignore) {
     ignore = ["node_modules"]
   }
 
-  if (!filter) {
-    filter = (id) => {
+  if (!isFunction(ignore)) {
+    const ignorePatterns = ignore
+
+    ignore = (id) => {
       const idStr = String(id)
 
-      return !ignore!.some((pattern) => {
+      return !ignorePatterns.some((pattern) => {
         if (typeof pattern === "string") {
           return idStr.includes(pattern)
         }
@@ -57,6 +56,8 @@ export function monkeyReload(
       })
     }
   }
+
+  const ignoreFunc = ignore
 
   const getModuleFromCache = (id: WebpackModuleId) => require.cache[id] as WebpackModule | undefined
 
@@ -77,7 +78,7 @@ export function monkeyReload(
 
         const alreadyIncluded = outdatedModules.includes(mod.id)
 
-        if (!alreadyIncluded && filter!(mod.id)) {
+        if (!alreadyIncluded && ignoreFunc(mod.id)) {
           outdatedModules.push(mod.id)
         }
 
