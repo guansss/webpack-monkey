@@ -16,10 +16,13 @@ Still in early development and only tested on Tampermonkey for now. Things may n
   - [Advanced: multiple userscripts](#advanced-multiple-userscripts)
   - [More examples](#more-examples)
 - [API / Configuration](#api--configuration)
+  - [`monkey(config)`](#monkeyconfig)
+  - [`module.hot.monkeyReload(options)`](#modulehotmonkeyreloadoptions)
 - [External dependencies (@require)](#external-dependencies-require)
 - [External assets (@resource)](#external-assets-resource)
 - [CSS](#css)
 - [TypeScript](#typescript)
+- [Working with HMR](#working-with-hmr)
 
 ## Features
 
@@ -71,7 +74,7 @@ Create `src/index.js`:
 ```js
 GM_log("Hello world!")
 
-// enable HMR (Hot Module Replacement)
+// enable HMR, for more details please check the HMR section below
 if (module.hot) {
   module.hot.monkeyReload()
 }
@@ -229,7 +232,7 @@ module.exports = monkey({
 })
 ```
 
-### Monkey options
+**Options**
 
 - **[`debug`](#debug)**
 - **[`meta.resolve`](#metaresolve)**
@@ -238,6 +241,8 @@ module.exports = monkey({
 - **[`require`](#require)**
 - **[`devScript.meta`](#devscriptmeta)**
 - **[`devScript.transform`](#devscripttransform)**
+- **[`beautify.prettier`](#beautifyprettier)**
+- **[`terserPluginOptions`](#terserpluginoptions)**
 
 You'll find some options that can be a function with a context object as the second argument. The context object has the following type:
 
@@ -313,18 +318,49 @@ Default: `undefined`
 
 Function to transform the dev script content before serving. Can be used to add or modify the script content.
 
+#### `beautify.prettier`
+
+Type: `boolean`\
+Default: `undefined`
+
+When enabled, the output will be formatted with [Prettier](https://prettier.io/). When undefined, it will be enabled if there is a Prettier config found in the project.
+
+#### `terserPluginOptions`
+
+Type: `object`\
+Default: `undefined`
+
+Custom options for the minimizer [`TerserPlugin`](https://webpack.js.org/plugins/terser-webpack-plugin/).
+
+### `module.hot.monkeyReload(options)`
+
+Works the same as `module.hot.accept()`, except that it'll **reload the whole userscript** instead of the changed module and the modules that depend on it. See [Working with HMR](#working-with-hmr) section for more details.
+
+**Options**
+
+- **[`ignore`](#ignore)**
+
+#### `ignore`
+
+Type: `(string | RegExp)[] | (moduleId: string | number) => boolean`\
+Default: `["node_modules"]`
+
+Modules to ignore when reloading. Can be a list of strings or regular expressions, or a function that returns a boolean.
+
+Note that this only affects the modules that webpack-monkey tries to additionally reload, and does not affect the modules that webpack would reload according to its own rules.
+
 ## External dependencies (@require)
 
 There are several ways to handle external dependencies, please choose the one that suits you best.
 
 1. [meta.require (simple)](#1-metarequire-simple)
 2. [import with URL (good for tree-shaking)](#2-import-with-url-good-for-tree-shaking)
-3. [webpack externals with URL (good for tree-shaking and TypeScript)](#3-webpack-externals-with-url-good-for-tree-shaking-and-typescript) <- recommended
-4. [webpack externals with global variable (most flexible)](#4-webpack-externals-with-global-variable-most-flexible)
+3. [Webpack externals with URL (good for tree-shaking and TypeScript)](#3-webpack-externals-with-url-good-for-tree-shaking-and-typescript) <- recommended
+4. [Webpack externals with global variable (most flexible)](#4-webpack-externals-with-global-variable-most-flexible)
 
 ### 1. meta.require (simple)
 
-Put the URL in the `require` meta property:
+The simplest way is to put the URL in the `require` meta property:
 
 ```js
 // meta.js
@@ -332,7 +368,7 @@ module.exports = {
   require: [
     "https://unpkg.com/jquery@3.6.0",
 
-    // to load a minified bundle, specify its full path
+    // to load a specific file instead of the default entry, specify its full path
     "https://unpkg.com/lodash@4.17.21/lodash.min.js",
   ],
 }
@@ -352,7 +388,7 @@ import "https://unpkg.com/jquery@3.6.0"
 $(".foo")
 ```
 
-You can also use a named import, but in this case the external script will be treated as a module, and you must provide a global variable name to reference the module in the format of `"<globalVar>@<URL>"`, for example:
+You can also use [other import forms](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import#forms_of_import_declarations). When using an import form other than _Side effect import_, the external script will be treated as a module, and you must provide a global variable name to reference the module in the format of `"<globalVar>@<URL>"`, for example:
 
 ```js
 import jq, { ajax } from "$@https://unpkg.com/jquery@3.6.0"
@@ -369,17 +405,17 @@ const jq = $
 const { ajax } = $
 ```
 
-... except that the global variable `$` is treated as a module, so webpack generates a wrapper function to ensure the module system compatibility.
+... except that the global variable `$` is treated as a module object, so webpack generates a [shim](https://webpack.js.org/guides/shimming/) for it - not much a thing to worry about though.
 
 Note that you don't need to specify an import name that is different from the global variable name, because webpack will (always) rename it to a longer form. For example, you can write `import $ from "$@..."`, and webpack will generate an output like `const external_$_namespaceObject = $`.
 
-### 3. webpack externals with URL (good for tree-shaking and TypeScript)
+### 3. Webpack externals with URL (good for tree-shaking and TypeScript)
 
 ```js
 // webpack.config.js
 module.exports = {
   externals: {
-    // same rule as in #2, specify a global variable name if it's a named import
+    // same rule as in [2. import with URL], specify a global variable name if needed
     jquery: "https://unpkg.com/jquery@3.6.0",
     lodash: "_@https://unpkg.com/lodash",
   },
@@ -390,7 +426,7 @@ import "jquery"
 import _ from "lodash"
 ```
 
-### 4. webpack externals with global variable (most flexible)
+### 4. Webpack externals with global variable (most flexible)
 
 ```js
 // webpack.config.js
@@ -494,15 +530,49 @@ async function main() {
 
 ## CSS
 
-Writing CSS in JS (without a dedicated framework) is not a good experience as it lacks syntax highlighting and other IDE features. With webpack-monkey, you can write CSS in a separate file and import it in your js file:
+You can import CSS files in your js files (check out [webpack's guide](https://webpack.js.org/guides/asset-management/#loading-css)), and webpack-monkey will bundle them into the userscript:
+
+**index.js**
 
 ```js
 import "./styles.css"
+
+GM_log("Hello world!")
 ```
 
-All the CSS files imported this way will be bundled into the userscript. Additionally, the CSS content will be wrapped in a `GM_addStyle()` at the end of the userscript, so if you (or your users) are inspecting the code, you (they) can see the JavaScript code from the beginning, without having to scroll over a massive CSS block.
+**styles.css**
 
-Bonus: when writing styles for your custom DOM elements, a good practice is to use [CSS Modules](https://github.com/css-modules/css-modules), which ensures that your class names will not conflict with other userscripts or the page itself. Check out [webpack's guide](https://webpack.js.org/loaders/css-loader/#modules) for how to set it up.
+```css
+body {
+  color: red;
+}
+```
+
+**dist/hello.user.js**
+
+```js
+// ==UserScript==
+// @name     Hello world
+// @grant    GM_log
+// @grant    GM_addStyle
+// @match    *://*/*
+// @version  1.0.0
+// ==/UserScript==
+
+;(() => {
+  GM_log("Hello, world!")
+})()
+
+GM_addStyle(`
+body {
+  color: red;
+}
+`)
+```
+
+The CSS content will be wrapped in a `GM_addStyle()` at the end of the userscript, so if you or your users are inspecting the code, you can see the JavaScript code from the beginning, without having to scroll over a massive CSS block.
+
+Bonus: when writing styles for your custom DOM elements, a good practice is to use [CSS Modules](https://github.com/css-modules/css-modules), which ensures that your class names will not conflict with other userscripts or the page itself. Check out [webpack's guide](https://webpack.js.org/loaders/css-loader/#modules).
 
 ## TypeScript
 
@@ -523,7 +593,7 @@ export default {
 
 Another thing to note is how to get the types of an external dependency. You are most likely to install the dependency (`jquery`), and if the types are not built-in, also install its types package (`@types/jquery`).
 
-Then, if using the #3 or #4 method of [handling external dependencies](#external-dependencies), TypeScript will automatically recognize the types with such import syntax:
+Then, if using the #3 or #4 method of [handling external dependencies](#external-dependencies-require), TypeScript will automatically recognize the types with such import syntax:
 
 ```ts
 import $ from "jquery"
@@ -544,3 +614,218 @@ declare global {
 $(".foo")
 mitt()
 ```
+
+## Working with HMR
+
+If you don't know what HMR is, check out [webpack's introduction](https://webpack.js.org/concepts/hot-module-replacement/).
+
+### TL;DR
+
+Add `module.hot.monkeyReload()` to each userscript's **entry file**, and clear side effects with `module.hot.dispose()` in each module if needed. Example:
+
+**index.js**
+
+```js
+import { foo } from "./foo"
+
+const element = $("<div>").text(foo).appendTo("body")
+
+if (module.hot) {
+  module.hot.monkeyReload()
+  module.hot.dispose(() => {
+    element.remove()
+  })
+}
+```
+
+**foo.js**
+
+```js
+import { bar } from "./bar"
+
+export const foo = "foo"
+
+bar()
+```
+
+**bar.js**
+
+```js
+export function bar() {
+  const timer = setInterval(() => console.log(Date.now()), 1000)
+
+  if (module.hot) {
+    module.hot.dispose(() => {
+      clearInterval(timer)
+    })
+  }
+}
+```
+
+### Why HMR?
+
+When developing userscripts, you'll most likely want to enable HMR to prevent page reloads, because you have no direct access to the target page's states and will lose them all when reloading, which is very annoying and slows down the development.
+
+### webpack's standard method
+
+You've probably already used some frameworks such as React and Vue that have the HMR support built in for you, and it's pretty straightforward to change your _components' code_ and see the changes applied without page reload. However, if you change the _code outside of components_, a full page reload is performed because webpack cannot magically clear the outdated code's (possible) side effects.
+
+So how to prevent full reloads without such frameworks? Webpack has a [HMR guide](https://webpack.js.org/guides/hot-module-replacement/) for the standard method, but it's too complicated to understand, and too hard to set up without making mistakes.
+
+Let's take the example from that guide to start with:
+
+```js
+import _ from "lodash"
+import printMe from "./print.js"
+
+function component() {
+  // ...
+
+  return element
+}
+
+let element = component() // Store the element to re-render on print.js changes
+document.body.appendChild(element)
+
+if (module.hot) {
+  module.hot.accept("./print.js", function () {
+    console.log("Accepting the updated printMe module!")
+    document.body.removeChild(element)
+    element = component() // Re-render the "component" to update the click handler
+    document.body.appendChild(element)
+  })
+}
+```
+
+This works, but accepting dependencies is super tedious and error-prone, because you have to figure out each dependency's side effects and the way to clear them, and you have to write each dependency's path without the help of IDE's auto-completion and auto-renaming, which is a nightmare for maintenance.
+
+So a better way is to self-accept the current module and only clear itself's side effects:
+
+```diff
+  if (module.hot) {
+-   module.hot.accept("./print.js", function () {
+-     console.log("Accepting the updated printMe module!")
+-     document.body.removeChild(element)
+-     element = component() // Re-render the "component" to update the click handler
+-     document.body.appendChild(element)
+-   })
++   module.hot.accept()
++   module.hot.dispose(() => {
++     document.body.removeChild(element)
++   })
+  }
+```
+
+But some other problems arise. Let's take another example:
+
+**index.js**
+
+```js
+import { onResize } from "./helper"
+
+onResize(() => console.log("resized"))
+
+if (module.hot) {
+  module.hot.accept()
+}
+```
+
+**helper.js**
+
+```js
+export function onResize(listener) {
+  window.addEventListener("resize", listener)
+}
+```
+
+How to clear this side effect? It happens inside `helper.js`, but we cannot clear it with a `.dispose()` there, because if `index.js` is updated, then `helper.js` will not be reloaded, and its `.dispose()` will not be called. So we need to hoist this responsibility onto `index.js`:
+
+**index.js**
+
+```diff
+  import { onResize } from "./helper"
+
+- onResize(() => console.log("resized"))
++ const offResize = onResize(() => console.log("resized"))
+
+  if (module.hot) {
+    module.hot.accept()
++   module.hot.dispose(() => {
++     offResize()
++   })
+  }
+```
+
+**helper.js**
+
+```diff
+  export function onResize(listener) {
+    window.addEventListener("resize", listener)
+
++   return () => {
++     window.removeEventListener("resize", listener)
++   }
+  }
+```
+
+This is still quite annoying:
+
+1. When building for release, the `return () => ...` part is unused, but still bundled into the production code, making the size unnecessarily large.
+2. If `onResize()` is called multiple times, we'll have to keep track of all the returned functions and call them all in `.dispose()`.
+3. If we want `onResize()` to return something else, we'll have to make other dirty workarounds.
+
+### webpack-monkey's method
+
+webpack-monkey provides a simple solution for this by extending webpack's HMR API. You only need to add a few lines to your userscript's entry file:
+
+```js
+if (module.hot) {
+  module.hot.monkeyReload()
+}
+```
+
+`module.hot.monkeyReload()` works the same as `module.hot.accept()` except that it'll **reload the whole userscript** instead of the changed module and the modules that depend on it, as shown below:
+
+![HMR diagram](docs/img/diagram-hmr.png)
+
+This means you no longer have to worry about the relationship between modules, you only focus on clearing the side effects for each individual module.
+
+With this feature, we can rewrite the above example as:
+
+**index.js**
+
+```diff
+  import { onResize } from "./helper"
+
+- const offResize = onResize(() => console.log("resized"))
++ onResize(() => console.log("resized"))
+
+  if (module.hot) {
+-   module.hot.accept()
+-   module.hot.dispose(() => {
+-     offResize()
+-   })
++   module.hot.monkeyReload()
+  }
+```
+
+**helper.js**
+
+```diff
+  export function onResize(listener) {
+    window.addEventListener("resize", listener)
+
+-   return () => {
+-     window.removeEventListener("resize", listener)
+-   }
++   if (module.hot) {
++     module.hot.dispose(() => {
++       window.removeEventListener("resize", listener)
++     })
++   }
+  }
+```
+
+Now `helper.js` will be reloaded when `index.js` is updated, so we can place the cleanup code immediately after the side effect code, which is very intuitive and easy to maintain.
+
+The `if (module.hot)` block will also be removed when building for release, so no more unused code.
