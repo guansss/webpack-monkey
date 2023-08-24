@@ -776,7 +776,7 @@ This is still quite annoying:
 
 ### webpack-monkey's method
 
-webpack-monkey provides a simple solution for this by extending webpack's HMR API. You only need to add a few lines to your userscript's entry file:
+webpack-monkey provides a simple solution for this by extending webpack's HMR API. You only need to put these few lines in your userscript's **entry file**:
 
 ```js
 if (module.hot) {
