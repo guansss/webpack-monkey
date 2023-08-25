@@ -166,7 +166,7 @@ function createMetaResolver({ meta: { resolve } = {} }: MonkeyPluginOptions): Me
     // if the entry has no extension, we assume it's a directory
     const dir = path.extname(entry) ? path.dirname(entry) : entry
 
-    const candidates = compact(castArray(resolve)).concat(["meta.ts", "meta.js", "meta.json"])
+    const candidates = compact(castArray(resolve)).concat(["meta.js", "meta.ts", "meta.json"])
 
     for (const filename of candidates) {
       try {
