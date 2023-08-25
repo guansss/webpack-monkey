@@ -23,13 +23,15 @@ Still in early development and only tested on Tampermonkey for now. Things may n
 - [CSS](#css)
 - [TypeScript](#typescript)
 - [Working with HMR](#working-with-hmr)
+- [Comparison with vite-plugin-monkey](#comparison-with-vite-plugin-monkey)
 
 ## Features
 
 - **HMR (Hot Module Replacement)**: Easily apply changes without page reload.
 - **CSP bypassing**: No worries about CSP restrictions during development.
-- **Meta generation**: Automatically generate the userscript meta block.
+- **Meta generation**: Generate userscript meta blocks programmatically.
 - **Multiple userscripts**: Develop multiple userscripts at the same time.
+- **Clean output**: Comply with the userscript hosting sites' no-minification requirement.
 
 The modern workflow also allows:
 
@@ -264,7 +266,7 @@ When enabled, some debug messages will be printed in the console (just a few for
 Type: `string | string[] | (arg: { entryName: string; entry: string }, context) => string | undefined | Promise<string | undefined>`\
 Default: `["meta.ts", "meta.js", "meta.json"]`
 
-The path of meta file to be used for generating the userscript meta block. The first file that matches will be used.
+The path of meta file to be used by `meta.load` later. If an array, the first file that matches will be used.
 
 You can pass a custom function as the resolver:
 
@@ -273,7 +275,7 @@ monkey({
   monkey: {
     meta: {
       resolve({ entry }) {
-        return path.resolve(path.dirname(entry), "meta.js")
+        return path.resolve(path.dirname(entry), "meta.txt")
 
         // if undefined, this entry will not be treated as a userscript
         // return undefined
@@ -289,6 +291,19 @@ Type: `(arg: { file: string }, context) => UserscriptMeta | Promise<UserscriptMe
 Default: `require()`
 
 Function to load the meta file and return the meta object. The default function uses `require()` to load the meta file with supported extensions: `.js`, `.ts`, `.json`.
+
+```ts
+monkey({
+  monkey: {
+    meta: {
+      load({ file }) {
+        // read JSON from a meta.txt given by the above meta.resolve example
+        return JSON.stringify(fs.readFileSync(file, "utf-8"))
+      },
+    },
+  },
+})
+```
 
 #### `meta.transform`
 
@@ -615,6 +630,8 @@ $(".foo")
 mitt()
 ```
 
+Bonus: install `@types/tampermonkey` to get the types of `GM_*`.
+
 ## Working with HMR
 
 If you don't know what HMR is, check out [webpack's introduction](https://webpack.js.org/concepts/hot-module-replacement/).
@@ -829,3 +846,39 @@ With this feature, we can rewrite the above example as:
 Now `helper.js` will be reloaded when `index.js` is updated, so we can place the cleanup code immediately after the side effect code, which is very intuitive and easy to maintain.
 
 The `if (module.hot)` block will also be removed when building for release, so no more unused code.
+
+## Comparison with vite-plugin-monkey
+
+[vite-plugin-monkey](https://github.com/lisonge/vite-plugin-monkey) is another great plugin for developing userscripts but with Vite. This plugin and webpack-monkey basically share the same goal - to develop userscripts with bundling and HMR support, but they have different approaches.
+
+### Vite vs. webpack
+
+Vite is a next-generation build tool and is faster than webpack. However, Vite has a limitation that it only emits ES modules in development mode, meaning that they must be loaded with `<script type="module">`, which will be blocked by the page's CSP if it has one. A notable example of CSP-enabled sites is `github.com`.
+
+There is a workaround though - you can disable CSP with a browser extension. But it's a risky move because CSP is a security feature and is there for a reason, also you may forget to re-enable it after development. More importantly, if you are maintaining an open-source userscript, your contributors will be required to disable CSP as well, which is not a good experience.
+
+Webpack, on the other hand, emits CommonJS modules in development mode, which are capable to be evaluated in userscript scope and will never be affected by CSP.
+
+### Plugin differences
+
+vite-plugin-monkey is quite a mature project and has been well tested by the community. It has some features that webpack-monkey doesn't have yet, such as:
+
+- Loading external assets (@resource)
+- Greasemonkey support (GM.\*)
+- Generating `*.meta.js` for lightweight update checking when self-hosting userscripts, e.g. GitHub Pages
+
+webpack-monkey is still in early development but has some exclusive features:
+
+- CSP bypassing
+- Developing multiple userscripts by installing a single dev script
+- Reloading userscripts instead of the page when performing HMR with side effects
+
+### Is webpack-monkey a plagiarism?
+
+I have to put this here because I guess this kind of thought can easily come to one's mind.
+
+The answer is no. They have many similar concepts and features, but these are some features that a decent userscript development tool _should_ have. It's like all planets are round.
+
+In fact, a bit earlier than vite-plugin-monkey, I once spent a lot of time using Vite to set up a development environment for my own [userscripts](https://github.com/guansss/userscripts), which was somewhat inspired by [rollup-userscript-template](https://github.com/cvzi/rollup-userscript-template). It worked well until I found the CSP issue when developing a userscript for GitHub, and I was very frustrated because there's no choice but to disable CSP. So I migrated the framework to webpack and eventually decided to extract the code as a plugin.
+
+Okay but, is the name a plagiarism? I don't think so. I was thinking about _webpack-userscript_, but apparently it's already taken by another plugin (with quite different features so I'm not writing a comparison here). Then I came up with _webpack-monkey_, and then searched for name conflicts and discovered vite-plugin-monkey. I was a bit surprised but I think it's just a coincidence and decided to keep the name as it sounds good. I don't like monkeys though. I like cats.
