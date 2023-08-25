@@ -216,15 +216,12 @@ export class MonkeyMinimizer extends TerserPlugin {
           }
         }
 
-        // either if explicitly enabled or if a prettier config is found
-        if (explicitlyEnabled || this.prettierConfig) {
-          return prettier.format(code, {
-            ...this.prettierConfig,
+        return prettier.format(code, {
+          ...this.prettierConfig,
 
-            // prettier will use the extension to determine the parser
-            filepath: "foo.js",
-          })
-        }
+          // prettier will use the extension to determine the parser
+          filepath: "dummy.js",
+        })
       } catch (e) {
         if (explicitlyEnabled) {
           throw new Error(`Failed to beautify code with Prettier: ${e}`)
