@@ -2,11 +2,9 @@
   "compilerOptions": {
     "target": "es2017",
     "useDefineForClassFields": false,
-    "module": "ESNext",
-    "moduleResolution": "node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "strict": true,
-    "jsx": "preserve",
-    "checkJs": true,
     "allowJs": true,
     "declaration": true,
     "sourceMap": true,
@@ -20,14 +18,11 @@
     "removeComments": false,
     "lib": ["esnext", "dom"],
     "outDir": "dist/lib",
-    "declarationDir": "dist/types"
+    "declarationDir": "dist/lib"
   },
-  "include": ["**/*.ts", "**/*.d.ts", "src/node/*.js"],
-  "exclude": ["node_modules", "dist", "extensions"],
+  "include": ["**/*.ts", "**/*.d.ts"],
+  "exclude": ["node_modules", "dist", "tests/extensions"],
   "ts-node": {
-    "transpileOnly": true,
-    "compilerOptions": {
-      "module": "CommonJS"
-    }
+    "transpileOnly": true
   }
 }

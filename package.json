@@ -7,30 +7,17 @@
     "playground": "webpack serve --config=playground/webpack.config.ts",
     "playground:build": "webpack --config=playground/webpack.config.ts",
     "clean": "rimraf -g ./dist/*",
-    "build": "npm run clean && npm run build:node && npm run build:client && ts-node scripts/postbuild.ts",
-    "build:node": "tsc -p tsconfig.build-node.json && ts-node scripts/postbuild-target.ts node",
-    "build:client": "tsc -p tsconfig.build-client.json && ts-node scripts/postbuild-target.ts client",
+    "build": "npm run clean && tsc -p tsconfig.build.json && ts-node scripts/postbuild.ts",
     "pack": "cd dist && npm pack",
     "update-example": "npm run pack && cd .. && npm install dist/webpack-monkey-0.1.0.tgz -w @example/hello-world",
     "test": "jest --runInBand",
     "test:u": "npm run test -- --updateSnapshot",
     "test:h": "cross-env HEADLESS=false npm run test"
   },
-  "exports": {
-    ".": {
-      "types": "./types/index.d.ts",
-      "import": "./lib/index.js",
-      "require": "./lib/index.js"
-    },
-    "./client": {
-      "types": "./types/client/index.d.ts",
-      "import": "./lib/client/index.js",
-      "require": "./lib/client/index.js"
-    }
-  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "files": [
     "lib",
-    "types",
     "README.md"
   ],
   "repository": {
@@ -44,7 +31,7 @@
     "browser-extension-url-match": "^0.3.3",
     "lodash": "^4.17.21",
     "lodash-es": "^4.17.21",
-    "mitt": "^3.0.0",
+    "mitt": "^3.0.1",
     "tsc-alias": "^1.8.6",
     "vite": "^4.3.7"
   },

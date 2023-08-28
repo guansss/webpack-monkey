@@ -11,7 +11,7 @@ function main() {
 
 function copyFilesToDist() {
   const patterns = [
-    { from: "src/**/*.d.ts", to: "types/", fromBase: "src/" },
+    { from: "src/**/*.d.ts", to: "lib/", fromBase: "src/" },
     { from: "src/**/*.js", to: "lib/", fromBase: "src/" },
     { from: "package.json", to: "." },
   ]
