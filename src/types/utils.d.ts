@@ -1,3 +1,5 @@
+export type Falsy = null | undefined | false | "" | 0 | 0n
+
 export type MaybePromise<T> = T | Promise<T>
 
 /** Maps the property types of an object. Only one level deep. */
@@ -10,3 +12,6 @@ type MapSingleValue<T, U extends [any, any]> = U extends any ? (U[0] extends T ?
 export type ExtractFunction<T> = T extends (...args: any[]) => any ? T : never
 
 export type LiteralUnion<T extends U, U = string> = T | (U & { zz_IGNORE_ME?: never })
+
+// copied from from type-fest to avoid dependency in library release
+export type Simplify<T> = { [KeyType in keyof T]: T[KeyType] } & {}

@@ -1,5 +1,6 @@
 import { matchPattern } from "browser-extension-url-match"
-import { Falsey, Many, castArray, compact } from "lodash"
+import { castArray, compact } from "lodash"
+import { Falsy } from "../types/utils"
 
 function isNil(value: any): value is null | undefined {
   return value === null || value === undefined
@@ -12,7 +13,7 @@ export function includes<T>(array: readonly T[], value: any): value is T {
   return array.includes(value)
 }
 
-export function castTruthyArray<T>(value: Many<T | Falsey> | null | undefined): T[] {
+export function castTruthyArray<T>(value: T | Falsy | ReadonlyArray<T | Falsy>): T[] {
   return compact(castArray(value))
 }
 

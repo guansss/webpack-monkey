@@ -1,8 +1,8 @@
-import type { Simplify } from "type-fest"
-
 /**
  * @see https://www.tampermonkey.net/documentation.php
  */
+
+import { Simplify } from "../types/utils"
 
 export type UserscriptMeta = Simplify<
   Partial<ScriptMetaBase> & {
