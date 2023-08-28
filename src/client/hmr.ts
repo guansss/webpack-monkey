@@ -1,4 +1,4 @@
-import { isFunction } from "lodash-es"
+import { isFunction } from "lodash"
 import mitt from "mitt"
 import { overrideValue } from "../shared/patching"
 import { MapValues } from "../types/utils"

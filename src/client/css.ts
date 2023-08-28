@@ -1,4 +1,4 @@
-import { debounce } from "lodash-es"
+import { debounce } from "lodash"
 import { log } from "./log"
 
 const linkElements = /*#__PURE__*/ new Set<HTMLLinkElement>()

@@ -1,6 +1,6 @@
 import "./version"
 
-import { compact } from "lodash-es"
+import { compact } from "lodash"
 import { urlMatch } from "../shared/utils"
 import { MonkeyInjection, UserscriptInfo } from "../types/userscript"
 import { WebpackModule } from "../types/webpack"
