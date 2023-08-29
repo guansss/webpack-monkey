@@ -1,10 +1,10 @@
 import fs from "fs"
 import path from "path"
 
-const rootDir = path.resolve(__dirname, "..")
+export const rootDir = path.resolve(__dirname, "..")
 
 export function copyFiles(files: { from: string; to: string }[], failOnOverwrite = true) {
-  files.forEach(({ from, to }) => {
+  const normalizedFiles = files.map(({ from, to }) => {
     if (!path.isAbsolute(from)) {
       throw new Error(`from path ${from} is not absolute.`)
     }
@@ -15,8 +15,6 @@ export function copyFiles(files: { from: string; to: string }[], failOnOverwrite
     const relativeFrom = path.relative(rootDir, from)
     const relativeTo = path.relative(rootDir, to)
 
-    console.log(`copying ${relativeFrom} to ${relativeTo}`)
-
     if (!path.normalize(to).startsWith(rootDir)) {
       throw new Error(`copy destination ${to} is outside root dir.`)
     }
@@ -24,6 +22,14 @@ export function copyFiles(files: { from: string; to: string }[], failOnOverwrite
     if (fs.existsSync(to) && failOnOverwrite) {
       throw new Error(`copy destination ${to} already exists.`)
     }
+
+    return { from, to, relativeFrom, relativeTo }
+  })
+
+  const maxLeftWidth = Math.max(...normalizedFiles.map(({ relativeFrom }) => relativeFrom.length))
+
+  normalizedFiles.forEach(({ from, to, relativeFrom, relativeTo }) => {
+    console.log(`copying ${relativeFrom.padEnd(maxLeftWidth)} -> ${relativeTo}`)
 
     fs.mkdirSync(path.dirname(to), { recursive: true })
     fs.copyFileSync(from, to)

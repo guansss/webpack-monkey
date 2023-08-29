@@ -8,7 +8,7 @@
     "playground:build": "webpack --config=playground/webpack.config.ts",
     "clean": "rimraf -g ./dist/*",
     "build": "npm run clean && tsc -p tsconfig.build.json && ts-node scripts/postbuild.ts && npm run check-deps",
-    "check-deps": "dependency-check ./dist/lib/**/*.js ./dist/lib/**/*.d.ts --no-dev",
+    "check-deps": "ts-node scripts/check-deps.ts",
     "prepublishOnly": "npm run check-deps",
     "examples": "ts-node scripts/update-examples.ts",
     "test": "jest --runInBand",
