@@ -1,7 +1,7 @@
-const path = require("path")
-const { monkey } = require("webpack-monkey")
+import path from "path"
+import { monkey } from "webpack-monkey"
 
-module.exports = monkey({
+export default monkey({
   entry: "./src/index.ts",
   output: {
     path: path.resolve(__dirname, "dist"),
