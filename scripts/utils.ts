@@ -29,3 +29,15 @@ export function copyFiles(files: { from: string; to: string }[], failOnOverwrite
     fs.copyFileSync(from, to)
   })
 }
+
+export function rewriteFile(file: string, rewriter: (content: string) => string) {
+  const content = fs.readFileSync(file, "utf8")
+  const newContent = rewriter(content)
+
+  if (newContent.length === content.length && newContent === content) {
+    return false
+  }
+
+  fs.writeFileSync(file, newContent, "utf8")
+  return true
+}
