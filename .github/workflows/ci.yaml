@@ -27,9 +27,14 @@ jobs:
       - run: npm run build
       - run: npm test
 
+      - name: Get package version
+        if: failure()
+        id: get_package_version
+        run: echo ::set-output name=package_version::$(node -p "require('./package.json').version")
+
       - name: Upload artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v3
         with:
-          name: dist
+          name: dist-${{ steps.get_package_version.outputs.package_version }}-${{ matrix.node-version }}
           path: dist
