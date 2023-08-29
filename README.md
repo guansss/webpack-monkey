@@ -1,5 +1,8 @@
 # webpack-monkey
 
+![npm](https://img.shields.io/npm/v/webpack-monkey)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/guansss/webpack-monkey/ci.yaml)
+
 A webpack plugin for developing your userscripts with a modern workflow.
 
 Focusing on support for [Tampermonkey](https://www.tampermonkey.net/) and [Violentmonkey](https://violentmonkey.github.io/).
@@ -264,7 +267,7 @@ When enabled, some debug messages will be printed in the console (just a few for
 #### `meta.resolve`
 
 Type: `string | string[] | (arg: { entryName: string; entry: string }, context) => string | undefined | Promise<string | undefined>`\
-Default: `["meta.ts", "meta.js", "meta.json"]`
+Default: `["meta.js", "meta.ts", "meta.json"]`
 
 The path of meta file to be used by `meta.load` later. If an array, the first file that matches will be used.
 
@@ -338,7 +341,7 @@ Function to transform the dev script content before serving. Can be used to add 
 Type: `boolean`\
 Default: `undefined`
 
-When enabled, the output will be formatted with [Prettier](https://prettier.io/). When undefined, it will be enabled if there is a Prettier config found in the project.
+When enabled, the output will be formatted using [Prettier](https://prettier.io/) with your Prettier config. When undefined, it will be enabled if Prettier is found installed.
 
 #### `terserPluginOptions`
 
@@ -595,20 +598,82 @@ TypeScript is supported out of the box. Just set up the TypeScript environment a
 
 Note that only `ts-loader` and `babel-loader` are tested. Other loaders are supposed to work, otherwise please let me know by opening an issue.
 
+Bonus: install `@types/tampermonkey` to get the types for `GM_*`.
+
+### meta.ts
+
 You can place the meta object in a `meta.ts` as well:
 
 ```ts
-import { UserscriptMeta } from "webpack-monkey"
+// note: Meta is an alias of UserscriptMeta
+import { Meta } from "webpack-monkey"
 
 export default {
   version: "1.0",
   name: "Hello world",
-} satisfies UserscriptMeta
+} satisfies Meta
 ```
 
-Another thing to note is how to get the types of an external dependency. You are most likely to install the dependency (`jquery`), and if the types are not built-in, also install its types package (`@types/jquery`).
+However, since this TypeScript file will be loaded with `require()`, you'll need to set up your environment to support it. Here's an example using [ts-node](https://typestrong.org/ts-node/):
 
-Then, if using the #3 or #4 method of [handling external dependencies](#external-dependencies-require), TypeScript will automatically recognize the types with such import syntax:
+1. Install `ts-node`: `npm install ts-node`
+2. In your `tsconfig.json`, set `esModuleInterop: true` and add a `ts-node` object that sets `module: "commonjs"`:
+
+   ```json
+   {
+     "compilerOptions": {
+       "esModuleInterop": true
+     },
+
+     "ts-node": {
+       "compilerOptions": {
+         "module": "commonjs"
+       }
+     }
+   }
+   ```
+
+3. Do either of the following:
+
+   - Rename `webpack.config.js` to `webpack.config.ts` (maybe need some rewriting), then webpack will do the rest for you.
+   - Install `cross-env`. Then in your `package.json`, prepend a [node flag](https://typestrong.org/ts-node/docs/usage/#node-flags-and-other-tools) to the webpack commands:
+
+     ```diff
+       {
+         "scripts": {
+     -     "dev": "webpack serve --mode development",
+     -     "build": "webpack --mode production"
+     +     "dev": "cross-env NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack serve --mode development",
+     +     "build": "cross-env NODE_OPTIONS=\"-r ts-node/register --no-warnings\" webpack --mode production"
+         }
+       }
+     ```
+
+### meta.js
+
+If you find the above method too complicated, you can also use a `meta.js` with JSDoc comments:
+
+```js
+/**
+ * @type {import("webpack-monkey").Meta}
+ */
+const meta = {
+  name: "Hello world",
+  version: "1.0.0",
+}
+
+module.exports = meta
+```
+
+If you're using WebStorm, the JSDoc type checking seems to be supported out of the box so you're good to go.
+
+If you're using VSCode, some [extra steps](https://code.visualstudio.com/docs/nodejs/working-with-javascript#_type-checking-javascript) are needed.
+
+### Typing external dependencies
+
+To type an external dependency, you are most likely to locally install it (`npm install xxx`), or if the types are not built-in, install only its types package (`@types/jquery`).
+
+Then, if using the #3 or #4 method of [handling external dependencies](#external-dependencies-require), TypeScript will automatically recognize the types when imported:
 
 ```ts
 import $ from "jquery"
@@ -629,8 +694,6 @@ declare global {
 $(".foo")
 mitt()
 ```
-
-Bonus: install `@types/tampermonkey` to get the types of `GM_*`.
 
 ## Working with HMR
 
