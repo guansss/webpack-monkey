@@ -1,6 +1,6 @@
 /// <reference path="./env.d.ts" />
 
-export type { UserscriptMeta } from "./shared/meta"
+export type { Meta, UserscriptMeta } from "./shared/meta"
 
 export * from "./node/monkey"
 export * from "./node/MonkeyPlugin"
