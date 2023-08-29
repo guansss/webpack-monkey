@@ -4,6 +4,8 @@
 
 import { Simplify } from "../types/utils"
 
+export type Meta = UserscriptMeta
+
 export type UserscriptMeta = Simplify<
   Partial<ScriptMetaBase> & {
     [K in (typeof META_FIELDS_REQUIRED)[number]]: ScriptMetaBase[K]
