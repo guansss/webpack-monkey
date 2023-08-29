@@ -1,6 +1,6 @@
-import fs from "fs"
 import * as glob from "glob"
 import path from "path"
+import { copyFiles } from "./utils"
 
 const rootDir = path.resolve(__dirname, "..")
 const distDir = path.resolve(__dirname, "../dist")
@@ -18,7 +18,7 @@ function copyFilesToDist() {
   const excludes = ["env-dev.d.ts"]
 
   const targets = patterns.flatMap(({ from, to, fromBase }) => {
-    const files = glob.sync(from, { cwd: rootDir, root: "" })
+    const files = glob.sync(from, { cwd: rootDir, root: "", windowsPathsNoEscape: true })
 
     if (!files.length) {
       throw new Error(`no files found for glob ${from}`)
@@ -26,28 +26,17 @@ function copyFilesToDist() {
 
     return files
       .filter((f) => !excludes.some((exclude) => f.includes(exclude)))
-      .map((file) => ({
-        from: file,
-        to,
-        fromBase,
-      }))
+      .map((from) => {
+        const relativePath = fromBase ? path.relative(fromBase, from) : from
+
+        from = path.resolve(rootDir, from)
+        to = path.resolve(distDir, to, relativePath)
+
+        return { from, to }
+      })
   })
 
-  targets.forEach(({ from, to, fromBase }) => {
-    const relativePath = fromBase ? path.relative(fromBase, from) : from
-
-    console.log(`copying ${relativePath} to ${to}`)
-
-    from = path.resolve(rootDir, from)
-    to = path.resolve(distDir, to, relativePath)
-
-    if (!to.startsWith(distDir)) {
-      throw new Error(`destination ${to} is not in distDir ${distDir}`)
-    }
-
-    fs.mkdirSync(path.dirname(to), { recursive: true })
-    fs.copyFileSync(from, to)
-  })
+  copyFiles(targets)
 }
 
 main()

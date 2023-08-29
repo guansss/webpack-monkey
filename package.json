@@ -9,9 +9,8 @@
     "clean": "rimraf -g ./dist/*",
     "build": "npm run clean && tsc -p tsconfig.build.json && ts-node scripts/postbuild.ts && npm run check-deps",
     "check-deps": "dependency-check ./dist/lib/**/*.js ./dist/lib/**/*.d.ts --no-dev",
-    "pack": "cd dist && npm pack",
     "prepublishOnly": "npm run check-deps",
-    "update-example": "npm run pack && cd .. && npm install dist/webpack-monkey-0.1.0.tgz -w @example/hello-world",
+    "examples": "ts-node scripts/update-examples.ts",
     "test": "jest --runInBand",
     "test:u": "npm run test -- --updateSnapshot",
     "test:h": "cross-env HEADLESS=false npm run test"
