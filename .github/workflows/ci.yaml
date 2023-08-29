@@ -24,8 +24,8 @@ jobs:
           cache: "npm"
 
       - run: npm ci
-      - run: npm run build
       - run: npm test
+      - run: npm run build
 
       - name: Get package version
         if: failure()
