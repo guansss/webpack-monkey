@@ -1,14 +1,11 @@
 import path from "path"
 import { monkey } from "webpack-monkey"
 
-export default monkey({
+module.exports = monkey({
   entry: "./src/index.ts",
   output: {
+    filename: "ts-hello-word.user.js",
     path: path.resolve(__dirname, "dist"),
-  },
-  externals: {
-    jquery: "$",
-    mitt: "mitt@https://unpkg.com/mitt/dist/mitt.umd.js",
   },
   module: {
     rules: [
