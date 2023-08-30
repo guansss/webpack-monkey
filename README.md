@@ -26,6 +26,7 @@ Focusing on support for [Tampermonkey](https://www.tampermonkey.net/) and [Viole
 - [TypeScript](#typescript)
 - [Working with HMR](#working-with-hmr)
 - [Comparison with vite-plugin-monkey](#comparison-with-vite-plugin-monkey)
+- [Development Notes](DEVELOPMENT.md)
 
 ## Features
 
