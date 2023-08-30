@@ -1,13 +1,12 @@
 # webpack-monkey
 
 ![npm](https://img.shields.io/npm/v/webpack-monkey)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/guansss/webpack-monkey/ci.yaml)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/guansss/webpack-monkey/ci.yaml?logo=github&label=test)
+
 
 A webpack plugin for developing your userscripts with a modern workflow.
 
 Focusing on support for [Tampermonkey](https://www.tampermonkey.net/) and [Violentmonkey](https://violentmonkey.github.io/).
-
-Still in early development and only tested on Tampermonkey for now. Things may not work as expected.
 
 - [Features](#features)
 - [Installation](#installation)
