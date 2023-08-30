@@ -5,7 +5,7 @@ import "./style.css"
 import "https://unpkg.com/mitt/dist/mitt.umd.js"
 
 declare global {
-  const mitt: typeof import("mitt").default
+  var mitt: typeof import("mitt").default
 }
 
 if (module.hot) {

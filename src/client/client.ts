@@ -63,7 +63,10 @@ export async function loadUserscript(script: UserscriptInfo) {
     return
   }
 
-  log("Loading script:", script.name)
+  if (__MK_GLOBAL__.debug) {
+    log("Loading script:", script.name)
+    log("Loading externals:", ...script.requires)
+  }
 
   await Promise.all([
     loadScripts([...script.requires.map((url) => ({ url })), script]),
@@ -85,6 +88,11 @@ export async function loadScripts(scripts: { url: string }[]) {
   )
 
   contents.forEach((content) => {
+    // make sure the evaluated code doesn't act like a module if it has a UMD wrapper
+    const module = undefined
+    const exports = undefined
+    const require = undefined
+
     eval(content)
   })
 }
