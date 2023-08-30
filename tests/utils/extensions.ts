@@ -1,6 +1,6 @@
 import { Browser, Page, Target } from "puppeteer"
 
-export async function installWithTampermonkey(browser: Browser, page: Page, scriptUrl: string) {
+export async function installScript(browser: Browser, page: Page, scriptUrl: string) {
   try {
     await page.goto(scriptUrl)
   } catch (e) {
@@ -11,6 +11,16 @@ export async function installWithTampermonkey(browser: Browser, page: Page, scri
     }
   }
 
+  if (__EXT__ === "tm") {
+    return installWithTampermonkey(browser)
+  } else if (__EXT__ === "vm") {
+    return installWithViolentmonkey(browser)
+  } else {
+    throw new Error(`Unknown extension type: "${__EXT__}"`)
+  }
+}
+
+async function installWithTampermonkey(browser: Browser) {
   const installerTarget = await browser.waitForTarget((target) =>
     /extension:.+ask\.html/.test(target.url())
   )
@@ -45,4 +55,15 @@ export async function installWithTampermonkey(browser: Browser, page: Page, scri
       }
     })
   }
+}
+
+async function installWithViolentmonkey(browser: Browser) {
+  const installerTarget = await browser.waitForTarget((target) =>
+    /extension:.+confirm\/index\.html/.test(target.url())
+  )
+  const installerPage = (await installerTarget.page())!
+  const installBtn = await installerPage.waitForSelector("#confirm")
+  await installBtn!.click()
+  await installerPage.waitForSelector("#confirm[disabled]")
+  await installerPage.close()
 }

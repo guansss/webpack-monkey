@@ -3,9 +3,15 @@
  * https://jestjs.io/docs/configuration
  */
 
+const { getExtension } = require("./tests/extensions/extensions")
+
 require("dotenv").config()
 
 const timeoutScale = process.env.CI ? 5 : 1
+
+if (process.env.EXT) {
+  console.log(`============= Testing with ${getExtension(process.env.EXT).name} =============`)
+}
 
 module.exports = {
   // All imported modules in your tests should be mocked automatically
@@ -70,6 +76,7 @@ module.exports = {
 
   // A set of global variables that need to be available in all test environments
   globals: {
+    __EXT__: process.env.EXT,
     __PORT__: parseInt(process.env.TEST_PORT),
     __BROWSER_CASE_TIMEOUT__: parseInt(process.env.TEST_BROWSER_CASE_TIMEOUT) * timeoutScale,
     __PUPPETEER_TIMEOUT__: parseInt(process.env.TEST_PUPPETEER_TIMEOUT) * timeoutScale,
@@ -102,7 +109,7 @@ module.exports = {
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
-  modulePathIgnorePatterns: ['dist'],
+  modulePathIgnorePatterns: ["dist"],
 
   // Activates notifications for test results
   // notify: false,
@@ -146,9 +153,7 @@ module.exports = {
   // setupFiles: [],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  setupFilesAfterEnv: [
-    "<rootDir>/tests/jest-setup-after-env.ts",
-  ],
+  setupFilesAfterEnv: ["<rootDir>/tests/jest-setup-after-env.ts"],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
   // slowTestThreshold: 5,

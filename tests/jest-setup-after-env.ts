@@ -1,4 +1,5 @@
 import * as matchers from "jest-extended"
+import { noop } from "lodash"
 
 expect.extend(matchers)
 
@@ -27,6 +28,10 @@ it.browser.todo = wrapIt(it.todo)
 it.browser.concurrent = wrapIt(it.concurrent)
 it.browser.each = wrapEach(it.each)
 
+function getBrowserTestName(baseName: string) {
+  return `[browser] ${baseName}`
+}
+
 function wrapIt(original: jest.It): jest.It {
   type ItFunction = {
     [K in keyof jest.It]: K extends "each"
@@ -37,7 +42,11 @@ function wrapIt(original: jest.It): jest.It {
   }[keyof jest.It]
 
   const itWrapper: ItFunction = (name, fn, timeout = defaultBrowserCaseTimeout) => {
-    original(`[browser] ${name}`, fn && wrapFn(fn), timeout)
+    if (process.env.EXT) {
+      return original(getBrowserTestName(name), fn && wrapFn(fn), timeout)
+    } else {
+      return original.skip(getBrowserTestName(name), noop)
+    }
   }
 
   return itWrapper as jest.It
@@ -45,16 +54,20 @@ function wrapIt(original: jest.It): jest.It {
 
 function wrapEach(original: jest.Each) {
   const eachWrapper: jest.Each = (...args: any[]) => {
-    const originalReturn = original.apply(globalThis, args as any)
+    if (process.env.EXT) {
+      const originalReturn = original.apply(globalThis, args as any)
 
-    const eachReturnWrapper: typeof originalReturn = (
-      name,
-      fn,
-      timeout = defaultBrowserCaseTimeout
-    ) => {
-      originalReturn(`[browser] ${name}`, wrapFn(fn), timeout)
+      const eachReturnWrapper: typeof originalReturn = (
+        name,
+        fn,
+        timeout = defaultBrowserCaseTimeout
+      ) => {
+        originalReturn(getBrowserTestName(name), wrapFn(fn), timeout)
+      }
+      return eachReturnWrapper
     }
-    return eachReturnWrapper
+
+    return it.skip.each.apply(globalThis, args as any)
   }
   return eachWrapper
 }

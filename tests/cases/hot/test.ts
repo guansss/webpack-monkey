@@ -4,7 +4,7 @@ import Server from "webpack-dev-server"
 import { merge } from "webpack-merge"
 import { monkey } from "../../../src"
 import { DEV_SCRIPT } from "../../../src/shared/constants"
-import { installWithTampermonkey } from "../../utils/tampermonkey"
+import { installScript } from "../../utils/extensions"
 import {
   testBuild,
   usingDevServerHot,
@@ -31,12 +31,12 @@ const config = withCommonConfig({
 
 it("build", () => testBuild(monkey(withMiniCssExtract(config))))
 
-describe("hot reload", () => {
-  it.browser("modules", async () => {
+describe("hot reload JS", () => {
+  it.browser("dependencies", async () => {
     await usingDevServerHot(
       { config: monkey(withMiniCssExtract(config)) },
       async (server, { replacers }) => {
-        await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
+        await installScript(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
         await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)
 
         const expectExactlyOnes = async (classes: string[]) => {
@@ -74,7 +74,9 @@ describe("hot reload", () => {
       }
     )
   })
+})
 
+describe("hot reload CSS", () => {
   it.browser.each([
     ["css with mini-css-extract", withMiniCssExtract()],
     // ["css with style-loader", withStyleLoader()],
@@ -82,7 +84,7 @@ describe("hot reload", () => {
     await usingDevServerHot(
       { config: monkey(merge({}, config, cssConfig)) },
       async (server, { replacers }) => {
-        await installWithTampermonkey(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
+        await installScript(browser, page, `http://localhost:${__PORT__}/${DEV_SCRIPT}`)
         await page.goto(`http://localhost:${__PORT__}/webpack-dev-server/`)
         await page.waitForSelector(".index1")
 

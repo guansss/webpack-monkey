@@ -2,12 +2,7 @@ const axios = require("axios")
 const fs = require("fs")
 const JSZip = require("jszip")
 const path = require("path")
-
-const extensionInfos = {
-  tampermonkey: {
-    url: "https://data.tampermonkey.net/tampermonkey_stable.crx",
-  },
-}
+const { extensionInfos } = require("../tests/extensions/extensions")
 
 const extensionDir = path.resolve(__dirname, "../tests/extensions")
 
@@ -29,7 +24,7 @@ async function installExtensions() {
       if (fs.existsSync(outDir)) {
         if (fs.readdirSync(outDir).length > 0) {
           console.warn(
-            `Extension directory ${outDir} already exists, skipping to avoid overwrite. If you want to reinstall it, please delete the directory first.`
+            `Warning: extension directory ${outDir} already exists, skipping to avoid overwriting. If you want to reinstall it, please delete the directory first.`
           )
           return
         }

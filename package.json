@@ -11,9 +11,13 @@
     "check-deps": "ts-node scripts/check-deps.ts",
     "prepublishOnly": "npm run check-deps",
     "examples": "ts-node scripts/update-examples.ts",
-    "test": "jest --runInBand",
-    "test:u": "npm run test -- --updateSnapshot",
-    "test:h": "cross-env HEADLESS=false npm run test"
+    "test": "jest --runInBand && npm run test:ext",
+    "test:u": "jest --runInBand --updateSnapshot",
+    "test:tm": "cross-env EXT=tm jest --runInBand -t '\\[browser\\]'",
+    "test:vm": "cross-env EXT=vm jest --runInBand -t '\\[browser\\]'",
+    "test:tm:h": "cross-env HEADLESS=false npm run test:tm",
+    "test:vm:h": "cross-env HEADLESS=false npm run test:vm",
+    "test:ext": "npm run test:tm && npm run test:vm"
   },
   "main": "lib/index.js",
   "types": "lib/index.d.ts",

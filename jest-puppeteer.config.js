@@ -1,4 +1,10 @@
-const { availableExtensions } = require("./tests/extensions/available-extensions")
+const { getExtension } = require("./tests/extensions/extensions")
+
+const extensions = []
+
+try {
+  extensions.push(getExtension(process.env.EXT).dir)
+} catch (ignored) {}
 
 /** @type {import('jest-environment-puppeteer').JestPuppeteerConfig} */
 module.exports = {
@@ -7,7 +13,7 @@ module.exports = {
     devtools: process.env.HEADLESS === "false",
     headless: process.env.HEADLESS !== "false" ? "new" : false,
     args: [
-      ...availableExtensions().flatMap((dir) => [
+      ...extensions.flatMap((dir) => [
         `--load-extension=${dir}`,
         `--disable-extensions-except=${dir}`,
       ]),
