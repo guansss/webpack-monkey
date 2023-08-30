@@ -3,6 +3,13 @@ name: Node.js CI
 on:
   push:
     branches: [main]
+    paths:
+      - "src/**"
+      - "test/**"
+      - "scripts/**"
+      - "*.js"
+      - "*.ts"
+      - "package.json"
   pull_request:
     branches: [main]
 
@@ -28,12 +35,12 @@ jobs:
       - run: npm test
       - run: npm run build
 
-      - name: Get package version
+      - name: Get package version if failure
         if: failure()
         id: get_package_version
         run: echo ::set-output name=package_version::$(node -p "require('./package.json').version")
 
-      - name: Upload artifacts on failure
+      - name: Upload artifacts if failure
         if: failure()
         uses: actions/upload-artifact@v3
         with:
