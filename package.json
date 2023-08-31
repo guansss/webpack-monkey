@@ -9,7 +9,7 @@
     "clean": "rimraf -g ./dist/*",
     "build": "npm run clean && tsc -p tsconfig.build.json && ts-node scripts/postbuild.ts && npm run check-deps",
     "check-deps": "ts-node scripts/check-deps.ts",
-    "prepublishOnly": "npm run check-deps",
+    "prepublishOnly": "ts-node ../scripts/check-deps.ts",
     "examples": "ts-node scripts/update-examples.ts",
     "test": "jest --runInBand && npm run test:ext",
     "test:u": "jest --runInBand --updateSnapshot",
