@@ -1,8 +1,7 @@
 # webpack-monkey
 
-![npm](https://img.shields.io/npm/v/webpack-monkey)
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/guansss/webpack-monkey/ci.yaml?logo=github&label=test)
-
+[![npm](https://img.shields.io/npm/v/webpack-monkey)](https://www.npmjs.com/package/webpack-monkey)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/guansss/webpack-monkey/ci.yaml?logo=github&label=test)](https://github.com/guansss/webpack-monkey/actions)
 
 A webpack plugin for developing your userscripts with a modern workflow.
 
@@ -20,6 +19,7 @@ Focusing on support for [Tampermonkey](https://www.tampermonkey.net/) and [Viole
 - [API / Configuration](#api--configuration)
   - [`monkey(config)`](#monkeyconfig)
   - [`module.hot.monkeyReload(options)`](#modulehotmonkeyreloadoptions)
+- [Meta generation](#meta-generation)
 - [External dependencies (@require)](#external-dependencies-require)
 - [External assets (@resource)](#external-assets-resource)
 - [CSS](#css)
@@ -367,6 +367,41 @@ Modules to ignore when reloading. Can be a list of strings or regular expression
 
 Note that this only affects the modules that webpack-monkey tries to additionally reload, and does not affect the modules that webpack would reload according to its own rules.
 
+## Meta generation
+
+The meta object is provided in a separate file. By default, webpack-monkey will look for `meta.js`, `meta.ts`, or `meta.json` in the same directory as the entry file, and load it with `require()`.
+
+You can customize this behavior with the `monkey.meta.resolve` and `monkey.meta.load` options.
+
+> [!NOTE]
+> The meta file is evaluated in the Node.js environment, so you can `require()` other modules in it, and cannot use browser APIs such as `window`.
+
+There are three types of meta fields:
+
+- **Boolean**: `noframes`
+- **Array of strings**: `grant`, `require`, `resource`, `include`, `match`, `exclude`, `connect`, `webRequest`
+- **String**: all the rest
+
+For an array field, if it has only one item, it can be written as a string instead. And if it is an empty array, it will be omitted from the output. For example:
+
+```js
+module.exports = {
+  require: "https://example.com/foo.js",
+  match: ["*://example.com", "*://example.org"],
+  resource: [],
+}
+```
+
+will be compiled to:
+
+```js
+// ==UserScript==
+// @require   https://example.com/foo.js
+// @match     *://example.com
+// @match     *://example.org
+// ==/UserScript==
+```
+
 ## External dependencies (@require)
 
 There are several ways to handle external dependencies, please choose the one that suits you best.
@@ -649,7 +684,7 @@ However, since this TypeScript file will be loaded with `require()`, you'll need
        }
      ```
 
-### meta.js
+### meta.js with JSDoc
 
 If you find the above method too complicated, you can also use a `meta.js` with JSDoc comments:
 
@@ -671,7 +706,7 @@ If you're using VSCode, some [extra steps](https://code.visualstudio.com/docs/no
 
 ### Typing external dependencies
 
-To type an external dependency, you are most likely to locally install it (`npm install xxx`), or if the types are not built-in, install only its types package (`@types/jquery`).
+To type an external dependency, you are most likely to locally install it (`npm install xxx`), or if the types are not built-in, install only its types package (`@types/xxx`).
 
 Then, if using the #3 or #4 method of [handling external dependencies](#external-dependencies-require), TypeScript will automatically recognize the types when imported:
 
@@ -685,10 +720,10 @@ And if using #1 or #2, you need to manually declare the global variables:
 /// <reference types="jquery" />
 
 declare global {
-  const $: JQueryStatic
+  var $: JQueryStatic
 
   // you can also use an inline import
-  const mitt: typeof import("mitt").default
+  var mitt: typeof import("mitt").default
 }
 
 $(".foo")
@@ -701,7 +736,9 @@ If you don't know what HMR is, check out [webpack's introduction](https://webpac
 
 ### TL;DR
 
-Add `module.hot.monkeyReload()` to each userscript's **entry file**, and clear side effects with `module.hot.dispose()` in each module if needed. Example:
+webpack-monkey extends webpack's HMR API with `module.hot.monkeyReload()` to reload all the modules in a userscript when any of them is changed.
+
+`module.hot.monkeyReload()` should be added to each userscript's **entry file**, and then you can clear side effects with `module.hot.dispose()` in any dependent modules. Example:
 
 **index.js**
 
