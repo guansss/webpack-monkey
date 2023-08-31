@@ -11,6 +11,7 @@
     "check-deps": "ts-node scripts/check-deps.ts",
     "prepublishOnly": "ts-node ../scripts/check-deps.ts",
     "examples": "ts-node scripts/update-examples.ts",
+    "examples:remote": "ts-node scripts/update-examples.ts --remote",
     "test": "jest --runInBand && npm run test:ext",
     "test:u": "jest --runInBand --updateSnapshot",
     "test:tm": "cross-env EXT=tm jest --runInBand -t '\\[browser\\]'",

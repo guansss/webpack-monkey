@@ -36,11 +36,18 @@ export function copyFiles(files: { from: string; to: string }[], failOnOverwrite
   })
 }
 
-export function rewriteFile(file: string, rewriter: (content: string) => string) {
+export function rewriteFile(
+  file: string,
+  rewriter: (content: string) => string,
+  { failOnUnchanged }: { failOnUnchanged?: boolean } = {}
+) {
   const content = fs.readFileSync(file, "utf8")
   const newContent = rewriter(content)
 
   if (newContent.length === content.length && newContent === content) {
+    if (failOnUnchanged) {
+      throw new Error(`rewriteFile: file ${file} is unchanged.`)
+    }
     return false
   }
 

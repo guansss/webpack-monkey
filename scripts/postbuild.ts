@@ -8,15 +8,13 @@ const distDir = path.resolve(__dirname, "../dist")
 function main() {
   copyFilesToDist()
 
-  rewriteFile(path.resolve(distDir, "lib/index.d.ts"), (content) => {
-    const result = content.replace("../../src/env.d.ts", "./env.d.ts")
-
-    if (result === content) {
-      throw new Error("rewrite failed")
-    }
-
-    return result
-  })
+  rewriteFile(
+    path.resolve(distDir, "lib/index.d.ts"),
+    (content) => {
+      return content.replace("../../src/env.d.ts", "./env.d.ts")
+    },
+    { failOnUnchanged: true }
+  )
 }
 
 function copyFilesToDist() {
