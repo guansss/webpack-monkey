@@ -5,7 +5,7 @@ import { getDescriptionFile, getRequiredVersionFromDescriptionFile } from "webpa
 import { isArray, isBoolean, isNil, isObject, isString, trimEnd } from "lodash"
 import { Compilation, sources } from "webpack"
 import { getGMAPIs } from "../shared/GM"
-import { META_FIELDS, META_FIELDS_WITH_LOCALIZATION, UserscriptMeta } from "../shared/meta"
+import { META_FIELDS, META_FIELDS_I18N, UserscriptMeta } from "../shared/meta"
 import { includes } from "../shared/utils"
 
 export function getPackageDepVersion(packageJson: any, dep: string): string | undefined {
@@ -65,7 +65,21 @@ export function generateMetaBlock(source: string, meta: UserscriptMeta) {
 
   const metaFields = Object.keys(meta)
   const maxFieldLength = Math.max(
-    ...["grant", "require", ...metaFields].map((field) => field.length)
+    ...["grant", "require", ...metaFields].map((field) => {
+      if (includes(META_FIELDS_I18N, field)) {
+        const value = meta[field]
+
+        if (isObject(value)) {
+          const maxLangLength = Math.max(
+            ...Object.keys(value).map((lang) => (lang === "default" ? 0 : lang.length))
+          )
+
+          return field.length + maxLangLength
+        }
+      }
+
+      return field.length
+    })
   )
   const indentSize = fieldPrefix.length + maxFieldLength + 2
   const indentEnd = (str: string) => str.padEnd(indentSize, " ")
@@ -94,14 +108,14 @@ export function generateMetaBlock(source: string, meta: UserscriptMeta) {
   }
 
   for (const field of META_FIELDS) {
-    if (includes(META_FIELDS_WITH_LOCALIZATION, field)) {
+    if (includes(META_FIELDS_I18N, field)) {
       const value = meta[field]
 
       if (value) {
         if (isString(value)) {
           putField(field, value)
         } else {
-          for (const lang in value) {
+          for (const lang of Object.keys(value)) {
             putField(field + (lang === "default" ? "" : ":" + lang), value[lang]!)
           }
         }

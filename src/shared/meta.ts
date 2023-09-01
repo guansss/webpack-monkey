@@ -14,7 +14,7 @@ export type UserscriptMeta = Simplify<
 
 type ScriptMetaBase = Simplify<
   {
-    [K in (typeof META_FIELDS_WITH_LOCALIZATION)[number]]:
+    [K in (typeof META_FIELDS_I18N)[number]]:
       | string
       | {
           default: string
@@ -29,7 +29,7 @@ type ScriptMetaBase = Simplify<
   }
 >
 
-export const META_FIELDS_WITH_LOCALIZATION = [
+export const META_FIELDS_I18N = [
   //
   "name",
   "description",
@@ -76,7 +76,7 @@ export const META_FIELDS_STRING = [
 ] as const
 
 export const META_FIELDS = [
-  ...META_FIELDS_WITH_LOCALIZATION,
+  ...META_FIELDS_I18N,
   ...META_FIELDS_BOOLEAN,
   ...META_FIELDS_ARRAY,
   ...META_FIELDS_STRING,
