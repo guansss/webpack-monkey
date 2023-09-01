@@ -381,7 +381,7 @@ The meta fields have different types as shown below:
 <table>
 <thead>
   <tr>
-    <th>Field type</th>
+    <th>Type</th>
     <th>Fields</th>
     <th>Example</th>
     <th>Example output</th>
@@ -390,7 +390,7 @@ The meta fields have different types as shown below:
 <tbody>
   <tr>
     <td>Boolean</td>
-    <td><pre>noframes</pre></td>
+    <td><code>noframes</code></td>
 <td>
 
 ```js
@@ -410,7 +410,7 @@ module.exports = {
   </tr>
   <tr>
     <td>Array</td>
-    <td><pre>grant<br>match<br>include<br>exclude<br>require<br>resource<br>connect<br>webRequest<br></pre></td>
+    <td><code>grant</code><br><code>match</code><br><code>include</code><br><code>exclude</code><br><code>require</code><br><code>resource</code><br><code>connect</code><br><code>webRequest</code><br></td>
 <td>
 
 <!-- prettier-ignore -->
@@ -440,7 +440,7 @@ module.exports = {
   </tr>
   <tr>
     <td>Object<br>(I18n)</td>
-    <td><pre>name<br>description</pre></td>
+    <td><code>name</code><br><code>description</code></td>
 <td>
 
 ```js
