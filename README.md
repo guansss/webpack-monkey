@@ -376,31 +376,117 @@ You can customize this behavior with the `monkey.meta.resolve` and `monkey.meta.
 > [!NOTE]
 > The meta file is evaluated in the Node.js environment, so you can `require()` other modules in it, and cannot use browser APIs such as `window`.
 
-There are three types of meta fields:
+The meta fields have different types as shown below:
 
-- **Boolean**: `noframes`
-- **Array of strings**: `grant`, `require`, `resource`, `include`, `match`, `exclude`, `connect`, `webRequest`
-- **String**: all the rest
-
-For an array field, if it has only one item, it can be written as a string instead. And if it is an empty array, it will be omitted from the output. For example:
+<table>
+<thead>
+  <tr>
+    <th>Field type</th>
+    <th>Fields</th>
+    <th>Example</th>
+    <th>Example output</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td>Boolean</td>
+    <td><pre>noframes</pre></td>
+<td>
 
 ```js
 module.exports = {
+  noframes: true,
+}
+```
+
+</td>
+<td>
+
+```js
+// @noframes
+```
+
+</td>
+  </tr>
+  <tr>
+    <td>Array</td>
+    <td><pre>grant<br>match<br>include<br>exclude<br>require<br>resource<br>connect<br>webRequest<br></pre></td>
+<td>
+
+<!-- prettier-ignore -->
+```js
+module.exports = {
+  match: [
+    "*://example.com",
+    "*://example.org"
+  ],
+  // can be a string if only one item
   require: "https://example.com/foo.js",
-  match: ["*://example.com", "*://example.org"],
+  // empty array will be omitted
   resource: [],
 }
 ```
 
-will be compiled to:
+</td>
+<td>
 
 ```js
-// ==UserScript==
-// @require   https://example.com/foo.js
-// @match     *://example.com
-// @match     *://example.org
-// ==/UserScript==
+// @match   *://example.com
+// @match   *://example.org
+// @require https://example.com/foo.js
 ```
+
+</td>
+  </tr>
+  <tr>
+    <td>Object<br>(I18n)</td>
+    <td><pre>name<br>description</pre></td>
+<td>
+
+```js
+module.exports = {
+  name: {
+    default: "Hello world",
+    "zh-CN": "你好世界",
+  },
+  // can be a string if only one item
+  description: "Say hello to the world!",
+}
+```
+
+</td>
+<td>
+
+```js
+// @name        Hello world
+// @name:zh-CN  你好世界
+// @description Say hello to the world!
+```
+
+</td>
+  </tr>
+  <tr>
+    <td>String</td>
+    <td>All the others</td>
+<td>
+
+```js
+module.exports = {
+  version: "0.1",
+}
+```
+
+</td>
+<td>
+
+```js
+//@version 0.1
+```
+
+</td>
+  </tr>
+</tbody>
+</table>
 
 ## External dependencies (@require)
 
@@ -781,7 +867,7 @@ export function bar() {
 
 ### Why HMR?
 
-When developing userscripts, you'll most likely want to enable HMR to prevent page reloads, because you have no direct access to the target page's states and will lose them all when reloading, which is very annoying and slows down the development.
+When developing userscripts, you'll most likely want to enable HMR to prevent page reloads, because you have no direct access to the target page's states and will lose them all when reloading, for example the position in an infinite scroll list, which is very annoying and slows down the development.
 
 ### webpack's standard method
 
