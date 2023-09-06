@@ -86,8 +86,9 @@ type EntryDependency = ReturnType<(typeof EntryPlugin)["createDependency"]>
 
 export interface MonkeyPluginOptions {
   require?: {
-    lockVersions?: boolean
     provider?: CdnProvider
+    lockVersions?: boolean
+    exportsFromUnnamed?: boolean
     resolve?: RequireResolver
   }
   meta?: {
@@ -394,43 +395,46 @@ export class MonkeyPlugin {
         )
 
         // detect named/default imports of unnamed external modules and warn the user,
+        // detect used exports from unnamed external modules and then warn the user,
         // or throw an error when building for production
-        compilation.hooks.afterChunks.tap(this.constructor.name, (chunks) => {
-          const externalModules = [...compilation.modules].filter(
-            (m): m is ExternalModule => m instanceof ExternalModule
-          )
+        if (!this.options.require?.exportsFromUnnamed) {
+          compilation.hooks.afterChunks.tap(this.constructor.name, (chunks) => {
+            const externalModules = [...compilation.modules].filter(
+              (m): m is ExternalModule => m instanceof ExternalModule
+            )
 
-          for (const module of externalModules) {
-            const exportsInfo = compilation.moduleGraph.getExportsInfo(module)
-            const runtimes = uniq([...chunks].map((c) => c.runtime))
+            for (const module of externalModules) {
+              const exportsInfo = compilation.moduleGraph.getExportsInfo(module)
+              const runtimes = uniq([...chunks].map((c) => c.runtime))
 
-            if (
-              !runtimes.some(
-                // check if the module is imported with named import or default import
-                // e.g. `import { foo } from "bar"` or `import foo from "bar"`
-                (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime)
-              )
-            ) {
-              continue
-            }
+              if (
+                !runtimes.some(
+                  // check if the module is imported with named import or default import
+                  // e.g. `import { foo } from "bar"` or `import foo from "bar"`
+                  (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime)
+                )
+              ) {
+                continue
+              }
 
-            const resolved = this.resolvedExternals.get(module.userRequest)
+              const resolved = this.resolvedExternals.get(module.userRequest)
 
-            if (resolved) {
-              resolved.used = true
+              if (resolved) {
+                resolved.used = true
 
-              if (!resolved.identifier) {
-                if (this.serveMode) {
-                  this.logger.warn(getUnnamedUrlExternalErrorMessage(resolved.url))
-                } else {
-                  compilation.errors.push(
-                    new WebpackError(getUnnamedUrlExternalErrorMessage(resolved.url))
-                  )
+                if (!resolved.identifier) {
+                  if (this.serveMode) {
+                    this.logger.warn(getUnnamedUrlExternalErrorMessage(resolved.url))
+                  } else {
+                    compilation.errors.push(
+                      new WebpackError(getUnnamedUrlExternalErrorMessage(resolved.url))
+                    )
+                  }
                 }
               }
             }
-          }
-        })
+          })
+        }
 
         if (this.serveMode) {
           const { origin } = this.serverInfo!

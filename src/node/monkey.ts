@@ -85,9 +85,9 @@ export function monkey({
         minimizer: [new MonkeyMinimizer(options)],
 
         // by default this is false in development mode, we turn it on to allow the plugin to
-        // detect unexpected named/default imports of unnamed external modules and then warn the user
+        // detect unexpected used exports unnamed external modules and then warn the user
         // TODO: this may lower the performance, maybe find a solution that doesn't require this option
-        usedExports: true,
+        usedExports: options?.require?.exportsFromUnnamed ? undefined : true,
       },
 
       externalsType: "var",
