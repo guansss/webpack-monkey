@@ -85,13 +85,11 @@ type WebpackLogger = Compilation["logger"]
 type EntryDependency = ReturnType<(typeof EntryPlugin)["createDependency"]>
 
 export interface MonkeyPluginOptions {
-  require?:
-    | CdnProvider
-    | RequireResolver
-    | ({
-        lockVersions?: boolean
-        provider?: CdnProvider
-      } & Record<string, string>)
+  require?: {
+    lockVersions?: boolean
+    provider?: CdnProvider
+    resolve?: RequireResolver
+  }
   meta?: {
     resolve?: string | string[] | MetaResolver
     load?: MetaLoader
@@ -118,12 +116,11 @@ const cdnProviders: Record<CdnProvider, string> = {
 }
 
 function createRequireResolver({
-  // don't confuse with the `require()` function
-  require: requireOpt,
+  require: { lockVersions = true, provider, resolve } = {},
 }: MonkeyPluginOptions): RequireResolver {
   return (arg, context) => {
-    if (typeof requireOpt === "function") {
-      return requireOpt(arg, context)
+    if (resolve) {
+      return resolve(arg, context)
     }
 
     const { name, version, packageVersion, url } = arg
@@ -132,16 +129,7 @@ function createRequireResolver({
       return url
     }
 
-    if (isObject(requireOpt) && requireOpt[name]) {
-      return requireOpt[name]
-    }
-
-    const lockVersions = isString(requireOpt) || !(requireOpt?.lockVersions === false)
-
-    const cdnProvider = isString(requireOpt)
-      ? requireOpt
-      : (requireOpt?.provider as CdnProvider) ?? "unpkg"
-
+    const cdnProvider = provider || "unpkg"
     const baseUrl = cdnProviders[cdnProvider]
 
     if (!baseUrl) {
