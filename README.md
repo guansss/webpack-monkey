@@ -243,7 +243,10 @@ module.exports = monkey({
 - **[`meta.resolve`](#metaresolve)**
 - **[`meta.load`](#metaload)**
 - **[`meta.transform`](#metatransform)**
-- **[`require`](#require)**
+- **[`require.provider`](#requireprovider)**
+- **[`require.lockVersions`](#requirelockversions)**
+- **[`require.exportsFromUnnamed`](#requireexportsfromunnamed)**
+- **[`require.resolve`](#requireresolve)**
 - **[`devScript.meta`](#devscriptmeta)**
 - **[`devScript.transform`](#devscripttransform)**
 - **[`beautify.prettier`](#beautifyprettier)**
@@ -315,12 +318,72 @@ Default: `undefined`
 
 Function to transform the meta object before using it for serving or building. Can be used to add or modify meta properties.
 
-#### `require`
+#### `require.provider`
 
-Type: `"jsdelivr" | "unpkg" | object | function`\
+Type: `"jsdelivr" | "unpkg"`\
 Default: `"unpkg"`
 
-Defines the way to generate the `@require` directives for external dependencies. Handling external dependencies is a bit tricky, please read the [External dependencies](#external-dependencies-require) section for more details.
+When [importing modules using webpack externals](#4-webpack-externals-with-global-variable-most-flexible), the module will be resolved to `// @require <CDN>/<moduleName>@<version>`, where `<CDN>` is the provider's URL prefix (for example `https://cdn.jsdelivr.net/npm`), and `<version>` is the version of the installed package, or, if not found, the version range specified in the project's `package.json` (can be controlled with `require.lockVersions`).
+
+#### `require.lockVersions`
+
+Type: `boolean`\
+Default: `true`
+
+When using a CDN provider, this option controls whether to generate URLs with the versions of installed packages, or the version ranges specified in the project's `package.json`. For example:
+
+- `false`: `https://unpkg.com/jquery@^3.5.0` (version range specified in `package.json`)
+- `true`: `https://unpkg.com/jquery@3.6.0` (version actually installed)
+
+#### `require.exportsFromUnnamed`
+
+Type: `boolean`\
+Default: `false`
+
+When importing an external module with URL, whether to allow using its exports without specifying a global variable name for it. For example:
+
+```js
+import { ajax } from "https://unpkg.com/jquery"
+```
+
+The above code will cause a runtime error because a global variable (`$`) is not specified along with the URL. In this case, webpack-monkey will print a warning in development mode and throw an error in production mode. Setting this option to `true` suppresses the warning and error.
+
+#### `require.resolve`
+
+Type:
+
+```ts
+type RequireResolver = (
+  arg: {
+    name: string // the module name
+    externalType: string // you would't need this if you don't know what it is
+    version?: string // the installed version, or undefined if not found
+    packageVersion?: string // the version specified in package.json, or undefined if not found
+    url?: string // the URL if the module is imported with URL, otherwise undefined
+  },
+  context: object
+) => string | undefined | Promise<string | undefined>
+```
+
+Default: `undefined`
+
+Custom resolver for external dependencies. The function should return a URL string, or undefined if the module should not produce a `@require`.
+
+```js
+monkey({
+  monkey: {
+    require: {
+      resolve({ name, url }) {
+        if (name.includes("dev-tools")) {
+          return undefined
+        }
+
+        return url || "https://unpkg.com/" + name
+      },
+    },
+  },
+})
+```
 
 #### `devScript.meta`
 
@@ -581,70 +644,7 @@ import "jquery"
 import $ from "jquery"
 ```
 
-In this case, the module will be resolved to a URL according to the `monkey.require` option:
-
-**`"jsdelivr"` | `"unpkg"`**:
-
-```js
-monkey({
-  monkey: {
-    require: "unpkg",
-  },
-})
-```
-
-Resolves a module to `<CDN>/<moduleName>@<version>`, where `<CDN>` is the CDN provider's URL prefix (for example `https://cdn.jsdelivr.net/npm`), and `<version>` is the version of the installed package, or, if not found, the version specified in your `package.json`.
-
-To ignore the installed version and always use the version specified in `package.json`, use an object: `{ provider: "unpkg", lockVersions: false }`. See below for explanation.
-
-**`object`**:
-
-```js
-monkey({
-  monkey: {
-    require: {
-      // define external modules in the same format of webpack's "externals" option, as in #3
-      jquery: "https://unpkg.com/jquery@3.6.0",
-      lodash: "_@https://unpkg.com/lodash",
-
-      // fallback CDN provider for modules *not* specified above
-      provider: "unpkg",
-
-      // defaults to true; if false, ignore the installed versions and always use
-      // the versions specified in package.json when using the fallback CDN provider
-      lockVersions: true,
-    },
-  },
-})
-```
-
-**`function`**:
-
-```ts
-type RequireResolver = (
-  arg: {
-    name: string // the module name
-    externalType: string // you would't need this if you don't know what it is
-    version?: string // the installed version, or undefined if not found
-    packageVersion?: string // the version specified in package.json, or undefined if not found
-    url?: string // the URL if the module is imported with URL, otherwise undefined
-  },
-  context: object
-) => string | undefined | Promise<string | undefined>
-
-monkey({
-  monkey: {
-    require: ({ name, url }) => {
-      if (name.includes("dev-tools")) {
-        // do not generate a @require for this module
-        return undefined
-      }
-
-      return url || "https://unpkg.com/" + name
-    },
-  },
-})
-```
+In this case, the module will be resolved to a URL according to the [`require`](#require) option. If `require.resolve` is specified, it will be used; otherwise, a CDN provider will be used according to `require.provider`.
 
 ## External assets (@resource)
 
