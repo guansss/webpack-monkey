@@ -102,9 +102,10 @@ const path = require("path")
 const { monkey } = require("webpack-monkey")
 
 module.exports = monkey({
-  entry: "./src/index.js",
+  entry: {
+    hello: "./src/index.js",
+  },
   output: {
-    filename: "hello.user.js",
     path: path.resolve(__dirname, "dist"),
   },
 })
@@ -192,9 +193,6 @@ module.exports = monkey({
   },
   output: {
     path: path.resolve(__dirname, "dist"),
-
-    // this one is optional, it's already set as the default value by monkey()
-    filename: "[name].user.js",
   },
 })
 ```
