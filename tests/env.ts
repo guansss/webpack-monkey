@@ -21,6 +21,8 @@ export const EXT = getEnv("EXT")
 
 export const STRICT_CSP_PAGE = "/strict-csp.html"
 
+declare const chrome: any // available in the page context
+
 export const test = baseTest.extend<{
   extensionId: string
   devServer: (options: UseDevServerOptions) => Promise<UseDevServerContext>
@@ -43,6 +45,31 @@ export const test = baseTest.extend<{
       ],
     })
 
+    persistentContext.on("page", (page) => {
+      page.on("console", (msg) => {
+        const urlPath = new URL(page.url(), "http://foo").pathname.slice(1)
+        const text = `<${urlPath}> ${msg.text()}`
+
+        if (msg.type() === "error" || msg.type() === "warning") {
+          console.error(text)
+        } else {
+          console.log(text)
+        }
+      })
+    })
+
+    const extPage = await persistentContext.newPage()
+    await extPage.goto("chrome://extensions")
+    const extensions = await extPage.evaluate(async () => {
+      return (await chrome.management.getAll()).map((ext: any) => ({
+        id: ext.id,
+        name: ext.name,
+      })) as { id: string; name: string }[]
+    })
+    extensions.forEach((ext) => {
+      console.log(`Installed extension: ${ext.name} (${ext.id})`)
+    })
+
     await use(persistentContext)
     await persistentContext.close()
   },
@@ -52,6 +79,7 @@ export const test = baseTest.extend<{
 
     const extensionId = background.url().split("/")[2]
     expect(extensionId).toBeTruthy()
+    console.log(`Found extension with ID: ${extensionId}`)
     await use(extensionId!)
   },
   devServer: async ({}, use) => {
