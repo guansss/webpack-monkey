@@ -1,7 +1,7 @@
 # webpack-monkey
 
 [![npm](https://img.shields.io/npm/v/webpack-monkey)](https://www.npmjs.com/package/webpack-monkey)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/guansss/webpack-monkey/ci.yaml?logo=github&label=test)](https://github.com/guansss/webpack-monkey/actions)
+[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/guansss/webpack-monkey/test.yaml?logo=github&label=test)](https://github.com/guansss/webpack-monkey/actions)
 
 A webpack plugin for developing your userscripts with a modern workflow.
 

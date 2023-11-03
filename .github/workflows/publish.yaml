@@ -2,20 +2,24 @@ name: Publish Package to npmjs
 on:
   release:
     types: [published]
+  workflow_dispatch:
+
 jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
   build:
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v3
         with:
-          node-version: "16.x"
+          node-version: 18
           registry-url: "https://registry.npmjs.org"
 
       - run: npm ci
-      - run: npm run setup
-      - run: npm run test
       - run: npm run build
       - run: npm publish ./dist
         env:
