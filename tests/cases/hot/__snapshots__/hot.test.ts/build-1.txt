@@ -1,7 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`build 1`] = `
-"// ==UserScript==
+// ==UserScript==
 // @name     Hot test
 // @grant    GM_addStyle
 // @grant    GM_addElement
@@ -19,14 +16,13 @@ exports[`build 1`] = `
   GM_addElement(document.body, "div", { class: "depB1" })
 
   GM_addElement(document.body, "div", { class: "index1" })
+  console.log("index finished")
 })()
 
-GM_addStyle(\`
+GM_addStyle(`
 body {
   background-color: red;
   color: white;
 }
 
-\`)
-"
-`;
+`)

@@ -21,7 +21,7 @@
     "declarationDir": "dist/lib"
   },
   "include": ["**/*.ts", "**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "tests/extensions"],
+  "exclude": ["node_modules", "dist", "examples", "tests/extensions/*/"],
   "ts-node": {
     "transpileOnly": true
   }

@@ -1,23 +1,29 @@
-const axios = require("axios")
-const fs = require("fs")
-const JSZip = require("jszip")
-const path = require("path")
-const { extensionInfos } = require("../tests/extensions/extensions")
+import axios from "axios"
+import fs, { existsSync } from "fs"
+import JSZip from "jszip"
+import path from "path"
 
-const extensionDir = path.resolve(__dirname, "../tests/extensions")
-
-async function main() {
-  await installExtensions()
+const extensionInfos = {
+  tampermonkey: {
+    name: "Tampermonkey",
+    url: "https://data.tampermonkey.net/tampermonkey_stable.crx",
+    dir: path.resolve(__dirname, "tampermonkey"),
+    installed: existsSync(path.resolve(__dirname, "tampermonkey")),
+    check: (extension: any) => extension.name === "Tampermonkey",
+  },
+  violentmonkey: {
+    name: "Violentmonkey",
+    url: "https://github.com/violentmonkey/violentmonkey/releases/download/v2.15.0/Violentmonkey-webext-v2.15.0.zip",
+    dir: path.resolve(__dirname, "violentmonkey"),
+    installed: existsSync(path.resolve(__dirname, "violentmonkey")),
+    check: (extension: any) => extension.homepageUrl === "https://violentmonkey.github.io/",
+  },
 }
 
-async function installExtensions() {
-  if (!fs.existsSync(extensionDir)) {
-    throw new Error(`Extension directory ${extensionDir} not exists`)
-  }
-
+export async function installExtensions() {
   await Promise.all(
     Object.entries(extensionInfos).map(async ([name, info]) => {
-      const outDir = path.resolve(extensionDir, name)
+      const outDir = path.resolve(__dirname, name)
 
       console.log(`Installing extension ${name} to ${outDir}`)
 
@@ -37,7 +43,7 @@ async function installExtensions() {
   )
 }
 
-async function downloadAndUnzip(url, outDir) {
+async function downloadAndUnzip(url: string, outDir: string) {
   const resp = await axios({
     url,
     method: "get",
@@ -54,7 +60,7 @@ async function downloadAndUnzip(url, outDir) {
 
       console.log("Extracting", zipEntry.name)
 
-      const content = await zip.file(zipEntry.name).async("nodebuffer")
+      const content = await zip.file(zipEntry.name)!.async("nodebuffer")
 
       const outFile = path.resolve(outDir, zipEntry.name)
 
@@ -73,4 +79,13 @@ async function downloadAndUnzip(url, outDir) {
   )
 }
 
-main()
+export function mustGetExtension(id: string) {
+  const ext = extensionInfos[id as keyof typeof extensionInfos]
+  if (!ext) {
+    throw new Error(`No extension found for "${id}"`)
+  }
+  if (!ext.installed) {
+    throw new Error(`Extension "${id}" is not installed. Run "npm run setup" first.`)
+  }
+  return ext
+}

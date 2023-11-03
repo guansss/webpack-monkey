@@ -1,7 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`build 1`] = `
-"// ==UserScript==
+// ==UserScript==
 // @name     External test
 // @require  https://unpkg.com/ex-named
 // @require  https://ex-url-named
@@ -61,5 +58,3 @@ exports[`build 1`] = `
     [exUrlGlobalNamed.x1],
   ]
 })()
-"
-`;

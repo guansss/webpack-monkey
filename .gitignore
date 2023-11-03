@@ -3,6 +3,10 @@
 /tests/**/dist
 /tests/extensions/*/
 
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
 .vscode
 
 .idea/

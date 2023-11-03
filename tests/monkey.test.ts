@@ -1,7 +1,9 @@
+import { expect } from "@playwright/test"
 import { DefinePlugin } from "webpack"
 import { monkey } from "../src"
+import { test } from "./env"
 
-it("does not mutate given config", () => {
+test("does not mutate given config", () => {
   const config = {
     plugins: [new DefinePlugin({})],
   }

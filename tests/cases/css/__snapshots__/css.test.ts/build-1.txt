@@ -1,7 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`build 1`] = `
-"// ==UserScript==
+// ==UserScript==
 // @name     CSS test
 // @grant    GM_addStyle
 // @match    *://*/*
@@ -17,7 +14,7 @@ exports[`build 1`] = `
   console.log(styles_module.title)
 })()
 
-GM_addStyle(\`
+GM_addStyle(`
 body {
   background-color: red;
 }
@@ -26,6 +23,4 @@ body {
   color: white;
 }
 
-\`)
-"
-`;
+`)

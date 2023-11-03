@@ -1,6 +1,8 @@
+import { expect } from "@playwright/test"
 import { resolveUrlExternal } from "../src/node/utils"
+import { test } from "./env"
 
-it("resolves URL externals to valid external values", () => {
+test("resolves URL externals to valid external values", () => {
   expect(resolveUrlExternal("var foo@https://example.com")).toMatchObject({
     type: "var",
     identifier: "foo",

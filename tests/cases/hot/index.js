@@ -8,3 +8,5 @@ module.hot?.monkeyReload()
 module.hot?.dispose(() => {
   div.remove()
 })
+
+console.log("index finished")

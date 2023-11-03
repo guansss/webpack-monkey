@@ -1,10 +1,12 @@
-import { expect } from "@jest/globals"
+import { expect } from "@playwright/test"
+import axios from "axios"
 import fs from "fs"
+import { noop } from "lodash"
 import MiniCssExtractPlugin from "mini-css-extract-plugin"
 import path from "path"
 import postcssPresetEnv from "postcss-preset-env"
 import webpack from "webpack"
-import WebpackDevServer from "webpack-dev-server"
+import BaseWebpackDevServer from "webpack-dev-server"
 import { merge } from "webpack-merge"
 import { HotLoaderOptions, createHotLoaderRule } from "./hot-loader"
 
@@ -83,17 +85,25 @@ export function compilerCompile(compiler: webpack.Compiler) {
   })
 }
 
-interface UsingDevServerOptions {
-  config: webpack.Configuration
+export interface UseDevServerOptions extends webpack.Configuration {
   noCompile?: boolean
 }
 
-export async function usingDevServer(
-  { config, noCompile }: UsingDevServerOptions,
-  fn: (server: WebpackDevServer) => Promise<void>
+export interface UseDevServerContext {
+  server: WebpackDevServer
+  origin: string
+}
+
+export async function useDevServer(
+  { noCompile, ...config }: UseDevServerOptions,
+  fn: (context: UseDevServerContext) => Promise<void>,
 ) {
   config = merge({}, config, {
     mode: "development",
+    devServer: {
+      host: config.devServer?.host || "127.0.0.1",
+      port: config.devServer?.port || (await getFreePort()),
+    },
   })
 
   if (noCompile) {
@@ -118,32 +128,42 @@ export async function usingDevServer(
         throw e
       }
     })
-    await fn(server)
+
+    const port = +(server.options.port || NaN)
+    const host = server.options.host || "127.0.0.1"
+
+    if (isNaN(port)) {
+      throw new Error(`Invalid port: ${server.options.port}`)
+    }
+
+    await fn({
+      server,
+      origin: `http://${host}:${port}`,
+    })
   } finally {
+    console.log("Closing server...")
     await compilerClose(compiler)
     await server.stop().catch(console.warn)
   }
 }
 
-export async function usingDevServerHot(
-  options: UsingDevServerOptions,
-  fn: (server: WebpackDevServer, hotLoaderOptions: HotLoaderOptions) => Promise<void>
-) {
-  let { config } = options
+export interface UseDevServerHotContext extends UseDevServerContext {
+  hotLoaderOptions: HotLoaderOptions
+}
 
+export function useDevServerHot(
+  options: UseDevServerOptions,
+  fn: (context: UseDevServerHotContext) => Promise<void>,
+) {
   const hotLoaderRule = createHotLoaderRule({})
 
-  config = merge({}, config, {
+  options = merge({}, options, {
     module: {
       rules: [hotLoaderRule],
     },
   })
 
-  config = merge({}, config, {})
-
-  return usingDevServer({ ...options, config }, (server) => {
-    return fn(server, hotLoaderRule.options)
-  })
+  return useDevServer(options, (ctx) => fn({ ...ctx, hotLoaderOptions: hotLoaderRule.options }))
 }
 
 class CompilationPrevention extends Error {
@@ -167,40 +187,52 @@ export function preventCompilation(compiler: webpack.Compiler) {
 }
 
 export function withCommonConfig(...config: webpack.Configuration[]) {
-  return merge({}, defaultWebpackConfig, ...config)
-}
-
-const defaultWebpackConfig: webpack.Configuration = {
-  resolve: {
-    extensions: [".ts", ".js"],
-    alias: {
-      "@": path.resolve(__dirname, "../../src"),
-    },
-  },
-  module: {
-    rules: [
-      {
-        resourceQuery: /raw/,
-        type: "asset/source",
+  const defaultConfig: webpack.Configuration = {
+    resolve: {
+      extensions: [".ts", ".js"],
+      alias: {
+        "@": path.resolve(__dirname, "../../src"),
       },
-      {
-        test: /\.([cm]?ts|tsx)$/,
-        exclude: /node_modules/,
-        use: {
-          loader: "ts-loader",
-          options: {
-            transpileOnly: true,
+    },
+    module: {
+      rules: [
+        {
+          resourceQuery: /raw/,
+          type: "asset/source",
+        },
+        {
+          test: /\.([cm]?ts|tsx)$/,
+          exclude: /node_modules/,
+          use: {
+            loader: "ts-loader",
+            options: {
+              transpileOnly: true,
+            },
           },
         },
+      ],
+    },
+    devServer: {
+      static: {
+        directory: path.resolve(__dirname, ".."),
       },
-    ],
-  },
-  output: {
-    clean: true,
-  },
-  devtool: false,
-  watch: false,
-  stats: "errors-warnings",
+      headers(req, res, context) {
+        if (req.path.includes("strict-csp.html")) {
+          return new Headers({
+            "Content-Security-Policy": "default-src 'self'",
+          })
+        }
+        return {}
+      },
+    },
+    output: {
+      clean: true,
+    },
+    devtool: false,
+    watch: false,
+    stats: "errors-warnings",
+  }
+  return merge({}, defaultConfig, ...config)
 }
 
 const commonCssRule = {
@@ -253,4 +285,40 @@ export function withStyleLoader(config?: webpack.Configuration): webpack.Configu
     },
   }
   return config ? merge({}, config, overrides) : overrides
+}
+
+class WebpackDevServer extends BaseWebpackDevServer {
+  rejectStart: (err: unknown) => void = noop
+
+  constructor(...args: ConstructorParameters<typeof BaseWebpackDevServer>) {
+    super(...args)
+
+    this["createServer"] = async function (...args: any[]) {
+      const result = await BaseWebpackDevServer.prototype["createServer"].apply(this, args)
+
+      // WebpackDevServer does not properly handle this error when starting,
+      // causing the process to hang, so we need to handle it ourselves.
+      // related: https://github.com/webpack/webpack-dev-server/issues/4724
+      this.server!.on("error", (err: unknown) => {
+        this.rejectStart(err)
+      })
+
+      return result
+    }
+  }
+
+  override async start() {
+    return new Promise<void>((resolve, reject) => {
+      this.rejectStart = reject
+      super.start().then(resolve, reject)
+    })
+  }
+}
+
+export async function getFreePort(): Promise<number> {
+  const port: string = (await axios.get(`${process.env.GLOBAL_SERVER}/freePort`)).data
+
+  if (isNaN(+port)) throw new Error(`Received invalid port: ${port}`)
+
+  return +port
 }

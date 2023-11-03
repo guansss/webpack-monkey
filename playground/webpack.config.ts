@@ -18,13 +18,13 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
       debug: true,
       devScript: {
         meta: {
-          match: "http://localhost/*",
+          match: ["http://localhost/*", "http://127.0.0.1/*"],
         },
       },
     },
     mode: isServing ? "development" : "production",
     entry: Object.fromEntries(
-      entryFiles.map((entryFile) => [path.basename(path.dirname(entryFile)), entryFile])
+      entryFiles.map((entryFile) => [path.basename(path.dirname(entryFile)), entryFile]),
     ),
     plugins: [
       new MiniCssExtractPlugin(),
@@ -35,6 +35,15 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
     ],
     devServer: {
       port: 9526,
+      static: [__dirname, path.resolve(__dirname, "../tests")],
+      headers(req, res, context) {
+        if (req.path.includes("strict-csp.html")) {
+          return new Headers({
+            "Content-Security-Policy": "default-src 'self'",
+          })
+        }
+        return {}
+      },
     },
     externals: {
       ...(isServing

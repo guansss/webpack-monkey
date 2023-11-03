@@ -1,7 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
-
-exports[`build 1`] = `
-"// ==UserScript==
+// ==UserScript==
 // @name     Hello world
 // @grant    GM_log
 // @match    *://*/*
@@ -11,5 +8,3 @@ exports[`build 1`] = `
 ;(() => {
   GM_log("Hello, world!")
 })()
-"
-`;
