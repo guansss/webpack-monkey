@@ -746,7 +746,7 @@ export class MonkeyPlugin {
 
   resolveExternals(
     data: ExternalItemFunctionData,
-    callback: (err?: Error, result?: ExternalItemValue) => void,
+    callback: (err?: Error | null, result?: ExternalItemValue) => void,
     userDefinedExternals?:
       | Record<string, ExternalItemValue>
       | ExtractFunction<Configuration["externals"]>
