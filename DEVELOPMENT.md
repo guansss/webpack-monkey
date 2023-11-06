@@ -26,29 +26,24 @@ You'll be playing with the playground's userscripts during development.
 ## Testing
 
 ```sh
-# [headless] run all tests
+# run tests with Tampermonkey and Violentmonkey
 npm run test
 
-# [headless] run non-browser tests and update snapshots
+# run tests and update snapshots
 npm run test:u
 
-# [headless] run browser tests with Tampermonkey and Violentmonkey
-npm run test:ext
-
-# [headless] run browser tests with Tampermonkey
+# run tests with Tampermonkey
 npm run test:tm
 
-# [headless] run browser tests with Violentmonkey
+# run tests with Violentmonkey
 npm run test:vm
 
-# [GUI] run browser tests with Tampermonkey
+# run tests with Tampermonkey in debug mode
 npm run test:tm:h
 
-# [GUI] run browser tests with Violentmonkey
-npm run test:vm:h
+# run tests with Tampermonkey in UI mode
+npm run test:tm:ui
 ```
-
-To change the test server's port, set the `TEST_PORT` environment variable either in your shell or in the `.env` / `.env.local` file.
 
 ## Rebuilding examples
 
@@ -57,4 +52,10 @@ After making changes to the code, you can rebuild the examples to check if every
 ```sh
 npm run build
 npm run examples
+```
+
+## Syncing latest release version for examples (for maintainers)
+
+```sh
+npm run examples:remote
 ```
