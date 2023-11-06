@@ -105,7 +105,7 @@ function monkeyDownloadUpdateHandler(
   removedModules: WebpackModuleId[],
   promises: Promise<unknown>[],
   applyHandlers: Function[],
-  updatedModules: WebpackModuleId[]
+  updatedModules: WebpackModuleId[],
 ) {
   // the definition of webpack.ApplyOptions is wrong, we make a correct one here
   interface ApplyOptions {

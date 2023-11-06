@@ -19,7 +19,7 @@ export function monkey({
   if (!isNil(userDefinedRuntimeChunk)) {
     console.warn(
       MonkeyPlugin.name +
-        `: the value of "optimization.runtimeChunk" will be ignored. It will be overwritten to "single" when serving, and "false" when building.`
+        `: the value of "optimization.runtimeChunk" will be ignored. It will be overwritten to "single" when serving, and "false" when building.`,
     )
   }
 
@@ -95,6 +95,6 @@ export function monkey({
       externals: (data, callback) => {
         return plugin.resolveExternals(data, callback, userDefinedExternals as any)
       },
-    }
+    },
   )
 }

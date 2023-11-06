@@ -15,7 +15,7 @@ export async function loadCss(url: string) {
 export function styleLoaderInsertStyleElement(options: any) {
   options.styleTagTransform = function monkeyStyleTagTransform(
     css: string,
-    styleElement: HTMLStyleElement
+    styleElement: HTMLStyleElement,
   ) {
     styleElement?.remove()
     GM_addStyle(css)

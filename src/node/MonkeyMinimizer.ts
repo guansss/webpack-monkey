@@ -101,7 +101,7 @@ export class MonkeyMinimizer extends TerserPlugin {
       const AST_Node_prototype = parentUntil(
         node,
         (n) => Object.getPrototypeOf(n),
-        (n) => n.TYPE === "Node"
+        (n) => n.TYPE === "Node",
       )
 
       if (AST_Node_prototype) {
@@ -114,7 +114,7 @@ export class MonkeyMinimizer extends TerserPlugin {
         AST_Node_prototype.print = function (this: unknown, output: any, ...rest: any[]) {
           if (!output || !("indent" in output)) {
             self.logger.warn(
-              "failed to patch Terser's OutputStream: not getting an OutputStream instance."
+              "failed to patch Terser's OutputStream: not getting an OutputStream instance.",
             )
           } else if (!isPatched(output)) {
             markAsPatched(output)
@@ -132,7 +132,7 @@ export class MonkeyMinimizer extends TerserPlugin {
   removeRedundantComments(output: any) {
     if (!output.append_comments) {
       this.logger.warn(
-        'could not get Terser to remove redundant comments, because "output.append_comments" is undefined.'
+        'could not get Terser to remove redundant comments, because "output.append_comments" is undefined.',
       )
       return
     }
@@ -165,7 +165,7 @@ export class MonkeyMinimizer extends TerserPlugin {
 
     if (!print_template_string_chars) {
       this.logger.warn(
-        'could not get Terser to preserve line breaks in template strings, because "output.print_template_string_chars" is undefined.'
+        'could not get Terser to preserve line breaks in template strings, because "output.print_template_string_chars" is undefined.',
       )
       return
     }

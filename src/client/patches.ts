@@ -37,7 +37,7 @@ function patchLoadScript() {
   ;(__webpack_require__ as any).l = function monkeyLoadScript(
     url: string,
     done: (event: unknown) => void,
-    key: string
+    key: string,
   ) {
     if (inProgress[url]) {
       inProgress[url]!.push(done)
@@ -58,7 +58,7 @@ function patchLoadScript() {
           doneFns.forEach((fn) =>
             fn({
               type: "--- [Webpack monkey] unexpected error, looks like the hot update script is not being loaded, please report this. ---",
-            })
+            }),
           )
       })
   }
@@ -102,7 +102,7 @@ function patchSockJS() {
     const AbstractXHRObject_prototype = parentUntil(
       instance,
       (obj) => Object.getPrototypeOf(obj),
-      (obj) => obj?.constructor?.name === "AbstractXHRObject"
+      (obj) => obj?.constructor?.name === "AbstractXHRObject",
     )
 
     if (!AbstractXHRObject_prototype) {

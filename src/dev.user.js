@@ -18,9 +18,9 @@
         reject(
           new Error(
             `failed to load script (${url}), please check if the server is running. Details: ${JSON.stringify(
-              args
-            )}`
-          )
+              args,
+            )}`,
+          ),
         )
       }
 

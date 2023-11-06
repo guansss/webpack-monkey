@@ -359,7 +359,7 @@ type RequireResolver = (
     packageVersion?: string // the version specified in package.json, or undefined if not found
     url?: string // the URL if the module is imported with URL, otherwise undefined
   },
-  context: object
+  context: object,
 ) => string | undefined | Promise<string | undefined>
 ```
 

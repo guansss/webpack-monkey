@@ -13,7 +13,7 @@ function main() {
     (content) => {
       return content.replace("../../src/env.d.ts", "./env.d.ts")
     },
-    { failOnUnchanged: true }
+    { failOnUnchanged: true },
   )
 }
 

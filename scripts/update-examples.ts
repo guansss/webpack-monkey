@@ -34,7 +34,7 @@ async function updateWithLocalBuild() {
         from: file,
         to: path.resolve(monkeyDep, path.relative(dist, file)),
       }
-    })
+    }),
   )
 
   execSync("npm run build -w examples", { cwd: root, stdio: "inherit" })
@@ -58,7 +58,7 @@ async function updateWithRemote() {
         console.log(
           `${path.basename(path.dirname(file))}:`,
           originalVersion || `***not found***`,
-          originalVersion ? `-> ^${latestVersion}` : "(unchanged)"
+          originalVersion ? `-> ^${latestVersion}` : "(unchanged)",
         )
 
         return result

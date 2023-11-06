@@ -30,7 +30,7 @@ export async function installExtensions() {
       if (fs.existsSync(outDir)) {
         if (fs.readdirSync(outDir).length > 0) {
           console.warn(
-            `Warning: extension directory ${outDir} already exists, skipping to avoid overwriting. If you want to reinstall it, please delete the directory first.`
+            `Warning: extension directory ${outDir} already exists, skipping to avoid overwriting. If you want to reinstall it, please delete the directory first.`,
           )
           return
         }
@@ -39,7 +39,7 @@ export async function installExtensions() {
       }
 
       await downloadAndUnzip(info.url, outDir)
-    })
+    }),
   )
 }
 
@@ -66,7 +66,7 @@ async function downloadAndUnzip(url: string, outDir: string) {
 
       if (outFile === zipEntry.name) {
         throw new Error(
-          `Aborting dangerous operation: writing to ${outFile}, because the entry's path seems like an absolute path and overwrites the output path.`
+          `Aborting dangerous operation: writing to ${outFile}, because the entry's path seems like an absolute path and overwrites the output path.`,
         )
       }
 
@@ -75,7 +75,7 @@ async function downloadAndUnzip(url: string, outDir: string) {
       }
 
       await fs.promises.writeFile(outFile, content)
-    })
+    }),
   )
 }
 

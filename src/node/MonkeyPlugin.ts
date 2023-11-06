@@ -63,22 +63,22 @@ type RequireResolver = (
     packageVersion?: string
     url?: string
   },
-  context: OptionFunctionContext
+  context: OptionFunctionContext,
 ) => MaybePromise<string | undefined>
 
 type CdnProvider = "jsdelivr" | "unpkg"
 
 type MetaResolver = (
   arg: { entryName: string; entry: string },
-  context: OptionFunctionContext
+  context: OptionFunctionContext,
 ) => MaybePromise<string | undefined>
 type MetaLoader = (
   arg: { file: string },
-  context: OptionFunctionContext
+  context: OptionFunctionContext,
 ) => MaybePromise<UserscriptMeta>
 type metaTransformer = (
   arg: { meta: UserscriptMeta },
-  context: OptionFunctionContext
+  context: OptionFunctionContext,
 ) => MaybePromise<UserscriptMeta>
 
 type WebpackLogger = Compilation["logger"]
@@ -186,7 +186,9 @@ function createMetaLoader({ meta: { load } = {} }: MonkeyPluginOptions): MetaLoa
 
     if (!supportedExtensions.includes(ext)) {
       throw new Error(
-        `Unknown meta file extension: "${file}". Expected one of: ${supportedExtensions.join(", ")}`
+        `Unknown meta file extension: "${file}". Expected one of: ${supportedExtensions.join(
+          ", ",
+        )}`,
       )
     }
 
@@ -281,8 +283,8 @@ export class MonkeyPlugin {
     this.infraLogger.info(
       `Dev script hosted at: ${colorize(
         "cyan",
-        `http://${this.serverInfo.host}:${this.serverInfo.port}/${DEV_SCRIPT}`
-      )}`
+        `http://${this.serverInfo.host}:${this.serverInfo.port}/${DEV_SCRIPT}`,
+      )}`,
     )
   }
 
@@ -323,7 +325,7 @@ export class MonkeyPlugin {
 
         const projectPackageJsonPromise = getPackageJson(
           compilation.inputFileSystem,
-          compiler.context
+          compiler.context,
         ).catch((e) => {
           if (this.options.debug) {
             this.logger.warn(e)
@@ -391,7 +393,7 @@ export class MonkeyPlugin {
             })()
 
             this.userscriptsLoaded = this.userscriptsLoaded.then(() => loadUserscriptPromise)
-          }
+          },
         )
 
         // detect named/default imports of unnamed external modules and warn the user,
@@ -400,7 +402,7 @@ export class MonkeyPlugin {
         if (!this.options.require?.exportsFromUnnamed) {
           compilation.hooks.afterChunks.tap(this.constructor.name, (chunks) => {
             const externalModules = [...compilation.modules].filter(
-              (m): m is ExternalModule => m instanceof ExternalModule
+              (m): m is ExternalModule => m instanceof ExternalModule,
             )
 
             for (const module of externalModules) {
@@ -411,7 +413,7 @@ export class MonkeyPlugin {
                 !runtimes.some(
                   // check if the module is imported with named import or default import
                   // e.g. `import { foo } from "bar"` or `import foo from "bar"`
-                  (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime)
+                  (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime),
                 )
               ) {
                 continue
@@ -427,7 +429,7 @@ export class MonkeyPlugin {
                     this.logger.warn(getUnnamedUrlExternalErrorMessage(resolved.url))
                   } else {
                     compilation.errors.push(
-                      new WebpackError(getUnnamedUrlExternalErrorMessage(resolved.url))
+                      new WebpackError(getUnnamedUrlExternalErrorMessage(resolved.url)),
                     )
                   }
                 }
@@ -502,7 +504,7 @@ export class MonkeyPlugin {
                   }
 
                   qualifiedUserscripts.push(qualifiedUserscript)
-                })
+                }),
               )
 
               if (!runtimeScript || !assets[runtimeScript]) {
@@ -521,7 +523,7 @@ export class MonkeyPlugin {
               const newRuntimeSource = new ConcatSource(
                 this.options.debug ? `console.log("runtime");\n\n` : "",
                 `window.${VAR_MK_INJECTION} = ${JSON.stringify(monkeyInjection)};\n\n`,
-                runtimeSource
+                runtimeSource,
               )
 
               compilation.updateAsset(runtimeScript, newRuntimeSource)
@@ -532,7 +534,7 @@ export class MonkeyPlugin {
               })
 
               compilation.emitAsset(DEV_SCRIPT, new RawSource(devScriptContent))
-            }
+            },
           )
         }
 
@@ -573,7 +575,7 @@ export class MonkeyPlugin {
 
                       // inline CSS
                       const cssFiles = Array.from(chunk.files).filter((file) =>
-                        file.endsWith(".css")
+                        file.endsWith(".css"),
                       )
 
                       if (cssFiles.length) {
@@ -616,14 +618,14 @@ export class MonkeyPlugin {
                       const newJsSource = new RawSource(jsContent)
 
                       compilation.updateAsset(jsFile, newJsSource)
-                    })
+                    }),
                   )
-                })
+                }),
               )
-            }
+            },
           )
         }
-      }
+      },
     )
   }
 
@@ -690,11 +692,11 @@ export class MonkeyPlugin {
     const modules = compilation.chunkGraph
       .getChunkModules(chunk)
       .flatMap((mod) =>
-        mod instanceof ConcatenatedModule ? (mod as ConcatenatedModule).modules : mod
+        mod instanceof ConcatenatedModule ? (mod as ConcatenatedModule).modules : mod,
       )
 
     const externalModules = modules.filter(
-      (dep): dep is ExternalModule => dep instanceof ExternalModule
+      (dep): dep is ExternalModule => dep instanceof ExternalModule,
     )
 
     const requires = compact(
@@ -710,7 +712,7 @@ export class MonkeyPlugin {
               const segments = pathSplit(entryPath)
               const packageJsonPath = path.join(
                 ...segments.slice(0, segments.indexOf("node_modules") + 2),
-                "package.json"
+                "package.json",
               )
               packageVersion = require(packageJsonPath).version
             } catch (e) {
@@ -728,10 +730,10 @@ export class MonkeyPlugin {
               packageVersion,
               url: resolved?.url,
             },
-            this
+            this,
           )
-        })
-      )
+        }),
+      ),
     )
 
     return requires
@@ -749,7 +751,7 @@ export class MonkeyPlugin {
     callback: Parameters<ExtractFunction<Configuration["externals"]>>[1] & {},
     userDefinedExternals?:
       | Record<string, ExternalItemValue>
-      | ExtractFunction<Configuration["externals"]>
+      | ExtractFunction<Configuration["externals"]>,
   ): void {
     const { request } = data
 

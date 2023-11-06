@@ -17,8 +17,8 @@ export function overrideDescriptor<T extends object, K extends keyof T>(
       value: T[K]
       descriptor: PropertyDescriptor | undefined
     },
-    restore: () => void
-  ) => PropertyDescriptor
+    restore: () => void,
+  ) => PropertyDescriptor,
 ): PropertyDescriptor {
   const value = obj[prop]
   const descriptor = Object.getOwnPropertyDescriptor(obj, prop)
@@ -44,7 +44,7 @@ export function overrideDescriptor<T extends object, K extends keyof T>(
 export function overrideValue<T extends object, K extends keyof T>(
   obj: T,
   prop: K,
-  getValue: (original: T[K], restore: () => void) => T[K]
+  getValue: (original: T[K], restore: () => void) => T[K],
 ): T[K] {
   const newValue = overrideDescriptor(obj, prop, ({ value, descriptor }, restore) => ({
     configurable: true,

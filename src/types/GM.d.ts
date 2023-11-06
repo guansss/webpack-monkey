@@ -13,7 +13,7 @@ declare function GM_getResourceText(name: string): string
 declare function GM_registerMenuCommand(
   name: string,
   fn: (e: MouseEvent | KeyboardEvent) => void,
-  accessKey?: string
+  accessKey?: string,
 ): number
 
 declare function GM_unregisterMenuCommand(menuCmdId: number): void
@@ -145,11 +145,11 @@ declare function GM_xmlhttpRequest(details: GM_xmlhttpRequestParams): {
 
 declare function GM_addElement<K extends keyof HTMLElementTagNameMap>(
   tag_name: K,
-  attributes: Record<string, string>
+  attributes: Record<string, string>,
 ): HTMLElementTagNameMap[K]
 
 declare function GM_addElement<K extends keyof HTMLElementTagNameMap>(
   parent_node: HTMLElement,
   tag_name: K,
-  attributes: Record<string, string>
+  attributes: Record<string, string>,
 ): HTMLElementTagNameMap[K]

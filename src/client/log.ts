@@ -19,7 +19,7 @@ export function setLogger(logger: typeof console.log) {
 
       if (window.top === window.parent && window.parent.document) {
         const index = Array.from(window.parent.document?.getElementsByTagName("iframe")).indexOf(
-          window.frameElement as any
+          window.frameElement as any,
         )
 
         if (index >= 0) {

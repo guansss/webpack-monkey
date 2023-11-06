@@ -30,7 +30,7 @@ export function urlMatch(pattern: string, url: string) {
 export function parentUntil<T>(
   target: T | null | undefined,
   getParent: (target: T) => T | null | undefined,
-  callback: (target: T) => void | boolean
+  callback: (target: T) => void | boolean,
 ): T | null | undefined {
   const visited = new Set<T>()
 

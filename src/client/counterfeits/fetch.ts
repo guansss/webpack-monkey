@@ -6,7 +6,7 @@ interface GM_fetchRequestInit extends RequestInit {
 
 export const GM_fetch: (
   input: RequestInfo | URL,
-  init?: GM_fetchRequestInit
+  init?: GM_fetchRequestInit,
 ) => Promise<Response> = async (input, { _gm, method, headers, body, signal } = {}) => {
   let normalizedHeaders: Record<string, string>
 
@@ -38,7 +38,7 @@ export const GM_fetch: (
             status: resp.status,
             statusText: resp.statusText,
             headers: parseHeaders(resp.responseHeaders),
-          })
+          }),
         )
       } else {
         reject(resp)

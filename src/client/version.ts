@@ -10,7 +10,7 @@ if (requestUrl) {
 
   if (!version || isNaN(+version) || +version < +DEV_SCRIPT_VERSION) {
     log(
-      `the installed dev script is out of date, please reinstall it. (current: ${version}, latest: ${DEV_SCRIPT_VERSION})`
+      `the installed dev script is out of date, please reinstall it. (current: ${version}, latest: ${DEV_SCRIPT_VERSION})`,
     )
   }
 }

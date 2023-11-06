@@ -27,7 +27,7 @@ export default loader
 export function createHotLoaderRule(
   options: Omit<HotLoaderOptions, "replacers"> & {
     replacers?: Record<string, SourceReplacer | undefined>
-  }
+  },
 ) {
   const replacers = new Function() as HotLoaderOptions["replacers"]
   Object.assign(replacers, options.replacers)

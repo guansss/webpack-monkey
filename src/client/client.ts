@@ -84,7 +84,7 @@ export async function loadUserscript(script: UserscriptInfo) {
 
 export async function loadScripts(scripts: { url: string }[]) {
   const contents = await Promise.all(
-    scripts.map(({ url }) => GM_fetch(url).then((res) => res.text()))
+    scripts.map(({ url }) => GM_fetch(url).then((res) => res.text())),
   )
 
   contents.forEach((content) => {

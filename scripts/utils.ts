@@ -39,7 +39,7 @@ export function copyFiles(files: { from: string; to: string }[], failOnOverwrite
 export function rewriteFile(
   file: string,
   rewriter: (content: string) => string,
-  { failOnUnchanged }: { failOnUnchanged?: boolean } = {}
+  { failOnUnchanged }: { failOnUnchanged?: boolean } = {},
 ) {
   const content = fs.readFileSync(file, "utf8")
   const newContent = rewriter(content)

@@ -34,7 +34,7 @@ export function pathSplit(path: string) {
 
 export function traverseAndFindSource(
   source: unknown,
-  cb: (source: sources.Source) => void | true
+  cb: (source: sources.Source) => void | true,
 ): sources.Source | undefined {
   if (!source || !(source instanceof sources.Source)) {
     return undefined
@@ -71,7 +71,7 @@ export function generateMetaBlock(source: string, meta: UserscriptMeta) {
 
         if (isObject(value)) {
           const maxLangLength = Math.max(
-            ...Object.keys(value).map((lang) => (lang === "default" ? 0 : lang.length))
+            ...Object.keys(value).map((lang) => (lang === "default" ? 0 : lang.length)),
           )
 
           return field.length + maxLangLength
@@ -79,7 +79,7 @@ export function generateMetaBlock(source: string, meta: UserscriptMeta) {
       }
 
       return field.length
-    })
+    }),
   )
   const indentSize = fieldPrefix.length + maxFieldLength + 2
   const indentEnd = (str: string) => str.padEnd(indentSize, " ")
@@ -123,7 +123,7 @@ export function generateMetaBlock(source: string, meta: UserscriptMeta) {
     } else if (field === "grant") {
       putField(
         "grant",
-        getGMAPIs().filter((api) => source.includes(api))
+        getGMAPIs().filter((api) => source.includes(api)),
       )
 
       if (meta.grant) {
