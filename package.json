@@ -1,6 +1,6 @@
 {
   "name": "webpack-monkey",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Webpack plugin for developing userscripts with a modern workflow.",
   "scripts": {
     "setup": "ts-node scripts/setup.ts",
