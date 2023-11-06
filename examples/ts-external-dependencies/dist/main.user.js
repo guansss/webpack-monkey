@@ -7,14 +7,14 @@
 // @version  1.0.0
 // ==/UserScript==
 
-(() => {
-  "use strict";
+;(() => {
+  "use strict"
 
-  const external_$_namespaceObject = $;
+  const external_$_namespaceObject = $
 
-  mitt;
+  mitt
 
-  axios.get("https://www.example.com");
-  (0, external_$_namespaceObject.merge)([1, 2], [3, 4]);
-  mitt();
-})();
+  axios.get("https://www.example.com")
+  ;(0, external_$_namespaceObject.merge)([1, 2], [3, 4])
+  mitt()
+})()
