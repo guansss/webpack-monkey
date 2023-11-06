@@ -19,6 +19,5 @@
     "webpack-cli": "^5.1.0",
     "webpack-dev-server": "^4.15.0",
     "webpack-monkey": "^0.2.0"
-  },
-  "prettier": {}
+  }
 }
