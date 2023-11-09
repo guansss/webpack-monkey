@@ -50,16 +50,20 @@ async function updateWithRemote() {
       rewriteFile(file, (content) => {
         let originalVersion = ""
 
-        const result = content.replace(/"webpack-monkey": "([^"]+)"/, function (_, v) {
+        const result = content.replace(/"webpack-monkey": ".*?(\d.+)"/, function (match, v) {
           originalVersion = v
-          return `"webpack-monkey": "^${latestVersion}"`
+          return match.replace(v, latestVersion)
         })
 
-        console.log(
-          `${path.basename(path.dirname(file))}:`,
-          originalVersion || `***not found***`,
-          originalVersion ? `-> ^${latestVersion}` : "(unchanged)",
-        )
+        if (originalVersion) {
+          console.log(
+            `${path.basename(path.dirname(file))}:`,
+            originalVersion,
+            originalVersion !== latestVersion ? `-> ${latestVersion}` : "(unchanged)",
+          )
+        } else {
+          console.log(`${path.basename(path.dirname(file))}:`, `***not found***`)
+        }
 
         return result
       })
