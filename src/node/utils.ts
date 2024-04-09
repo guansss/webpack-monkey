@@ -5,7 +5,7 @@ import { getDescriptionFile, getRequiredVersionFromDescriptionFile } from "webpa
 import { isArray, isBoolean, isNil, isObject, isString, trimEnd } from "lodash"
 import { Compilation, sources } from "webpack"
 import { getGMAPIs } from "../shared/GM"
-import { META_FIELDS, META_FIELDS_I18N, UserscriptMeta } from "../shared/meta"
+import { META_FIELD_ALIAS, META_FIELDS, META_FIELDS_I18N, UserscriptMeta } from "../shared/meta"
 import { includes } from "../shared/utils"
 
 export function getPackageDepVersion(packageJson: any, dep: string): string | undefined {
@@ -60,6 +60,17 @@ export function traverseAndFindSource(
 }
 
 export function generateMetaBlock(source: string, meta: UserscriptMeta) {
+  meta = { ...meta }
+
+  for (const [key, value] of Object.entries(meta)) {
+    const alias = META_FIELD_ALIAS[key as keyof UserscriptMeta]
+
+    if (alias) {
+      delete (meta as any)[key]
+      ;(meta as any)[alias] = value
+    }
+  }
+
   let metaBlock = "// ==UserScript==\n"
   const fieldPrefix = "// @"
 

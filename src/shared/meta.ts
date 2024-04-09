@@ -2,6 +2,7 @@
  * @see https://www.tampermonkey.net/documentation.php
  */
 
+import { ConditionalKeys } from "type-fest"
 import { Simplify } from "../types/utils"
 
 export type Meta = UserscriptMeta
@@ -83,3 +84,9 @@ export const META_FIELDS = [
 ] as const
 
 const META_FIELDS_REQUIRED = ["name", "version"] as const
+
+export const META_FIELD_ALIAS: {
+  [K in keyof Meta]?: ConditionalKeys<Meta, Meta[K]>
+} = {
+  runAt: "run-at",
+}
