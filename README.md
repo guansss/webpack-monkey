@@ -91,7 +91,7 @@ Create `src/meta.js`:
 module.exports = {
   name: "Hello world",
   version: "1.0.0",
-  match: ["*://example.com"],
+  match: ["*://example.com/"],
 }
 ```
 
@@ -149,7 +149,7 @@ Run `npm run build`, and the userscript will be built to `dist/hello.user.js`:
 // ==UserScript==
 // @name     Hello world
 // @grant    GM_log
-// @match    *://example.com
+// @match    *://example.com/
 // @version  1.0.0
 // ==/UserScript==
 
@@ -478,8 +478,8 @@ module.exports = {
 ```js
 module.exports = {
   match: [
-    "*://example.com",
-    "*://example.org"
+    "*://example.com/",
+    "*://example.org/"
   ],
   // can be a string if only one item
   require: "https://example.com/foo.js",
@@ -492,8 +492,8 @@ module.exports = {
 <td>
 
 ```js
-// @match   *://example.com
-// @match   *://example.org
+// @match   *://example.com/
+// @match   *://example.org/
 // @require https://example.com/foo.js
 ```
 
