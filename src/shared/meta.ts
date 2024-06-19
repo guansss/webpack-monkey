@@ -74,6 +74,9 @@ export const META_FIELDS_STRING = [
   "downloadURL",
   "supportURL",
   "unwrap",
+  // Only valid for Violent Monkey @see {@link https://violentmonkey.github.io/api/metadata-block/#inject-into}
+  "inject-into", 
+  "injectInto"
 ] as const
 
 export const META_FIELDS = [
@@ -89,4 +92,5 @@ export const META_FIELD_ALIAS: {
   [K in keyof Meta]?: ConditionalKeys<Meta, Meta[K]>
 } = {
   runAt: "run-at",
+  injectInto: "inject-into",
 }
