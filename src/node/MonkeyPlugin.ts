@@ -95,6 +95,7 @@ export interface MonkeyPluginOptions {
     resolve?: string | string[] | MetaResolver
     load?: MetaLoader
     transform?: metaTransformer
+    generateFile?: boolean
   }
   devScript?: {
     meta?:
@@ -599,25 +600,29 @@ export class MonkeyPlugin {
                         }
                       }
 
-                      // inject meta block
-                      jsContent =
-                        generateMetaBlock(jsContent, {
-                          ...userscript.meta,
-                          require: [
-                            ...castTruthyArray(userscript.meta.require),
-                            ...(await this.getRequiresFromExternalModules({
-                              compilation,
-                              chunk,
-                              projectPackageJson: await projectPackageJsonPromise,
-                            })),
-                          ],
-                        }) +
-                        "\n\n" +
-                        jsContent
+                      // Generate the meta block
+                      const metaBlock = generateMetaBlock(jsContent, {
+                        ...userscript.meta,
+                        require: [
+                          ...castTruthyArray(userscript.meta.require),
+                          ...(await this.getRequiresFromExternalModules({
+                            compilation,
+                            chunk,
+                            projectPackageJson: await projectPackageJsonPromise,
+                          })),
+                        ],
+                      })
 
-                      const newJsSource = new RawSource(jsContent)
+                      // Generate meta file for userscript (*.meta.js)
+                      if (this.options.meta?.generateFile ?? true) {
+                        const metaFile = jsFile.replace(/\.user\.js$/, ".meta.js")
+                        compilation.emitAsset(metaFile, new RawSource(metaBlock))
+                        chunk.auxiliaryFiles.add(metaFile)
+                      }
 
-                      compilation.updateAsset(jsFile, newJsSource)
+                      // Generate userscript file (*.user.js)
+                      jsContent = metaBlock + "\n\n" + jsContent
+                      compilation.updateAsset(jsFile, new RawSource(jsContent))
                     }),
                   )
                 }),

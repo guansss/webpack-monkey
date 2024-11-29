@@ -1,0 +1,12 @@
+// ==UserScript==
+// @name     External test
+// @require  https://unpkg.com/ex-named
+// @require  https://ex-url-named
+// @require  https://ex-url-global-named
+// @require  https://ex-url-global
+// @require  https://ex-url-global2
+// @require  https://ex-url-global3
+// @require  https://unpkg.com/ex
+// @match    *:/*
+// @version  1.0.0
+// ==/UserScript==

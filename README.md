@@ -316,6 +316,13 @@ Default: `undefined`
 
 Function to transform the meta object before using it for serving or building. Can be used to add or modify meta properties.
 
+#### `meta.generateFile`
+
+Type: `boolean`\
+Default: `true`
+
+Generating `*.meta.js` for lightweight update checking when self-hosting userscripts, e.g. GitHub Pages
+
 #### `require.provider`
 
 Type: `"jsdelivr" | "unpkg"`\
@@ -1049,7 +1056,6 @@ vite-plugin-monkey is quite a mature project and has been well tested by the com
 
 - Loading external assets (@resource)
 - Greasemonkey support (GM.\*)
-- Generating `*.meta.js` for lightweight update checking when self-hosting userscripts, e.g. GitHub Pages
 
 webpack-monkey is still in early development but has some exclusive features:
 

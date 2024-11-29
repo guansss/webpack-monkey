@@ -1,0 +1,7 @@
+// ==UserScript==
+// @name     Hot test
+// @grant    GM_addStyle
+// @grant    GM_addElement
+// @match    *:/*
+// @version  1.0.0
+// ==/UserScript==
