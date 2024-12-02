@@ -1,0 +1,10 @@
+// ==UserScript==
+// @name     Url with port
+// @grant    GM_addElement
+// @include  *://localhost/
+// @version  1.0.0
+// ==/UserScript==
+
+;(() => {
+  GM_addElement(document.body, "div", { class: "index1" })
+})()
