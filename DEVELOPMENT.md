@@ -2,13 +2,20 @@
 
 This project uses workspaces to place the examples and requires npm version 7.x or higher.
 
+## Requirements
+
+- Node 22+ (see `.nvmrc`)
+
+If you use nvm:
+
+```sh
+nvm use
+```
+
 ## Setup
 
 ```sh
 npm install
-
-# download the browser extensions required for testing
-npm run setup
 ```
 
 ## Playground
@@ -25,24 +32,40 @@ You'll be playing with the playground's userscripts during development.
 
 ## Testing
 
-```sh
-# run tests with Tampermonkey and Violentmonkey
-npm run test
+Tests use Node's built-in test runner:
 
-# run tests and update snapshots
+```sh
+# run all tests
+npm test
+
+# update snapshots (when plugin output intentionally changes)
 npm run test:u
 
-# run tests with Tampermonkey
-npm run test:tm
+# run tests with coverage report
+npm run test:coverage
 
-# run tests with Violentmonkey
-npm run test:vm
+# run the browser tests (downloads Chromium, Violentmonkey and Tampermonkey)
+npm run test:browser
 
-# run tests with Tampermonkey in debug mode
-npm run test:tm:h
+# run the browser tests against a single manager
+npx playwright test --project=tampermonkey
+```
 
-# run tests with Tampermonkey in UI mode
-npm run test:tm:ui
+The browser tests run against Violentmonkey's Manifest V3 build and Tampermonkey,
+and enable Chromium's per-extension **Allow User Scripts** setting automatically.
+
+Dev mode does not work on pages that send a strict CSP, because the client
+evaluates the fetched bundles and every manager runs userscripts in the page
+context. The spec covering it is skipped.
+
+### Snapshots
+
+Build tests run webpack in production mode and compare output against stored files in `__snapshots__/`. Run `npm run test:u` to regenerate them, then review the diff before committing.
+
+## Building
+
+```sh
+npm run build
 ```
 
 ## Rebuilding examples

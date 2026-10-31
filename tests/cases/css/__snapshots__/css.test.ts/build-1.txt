@@ -5,14 +5,11 @@
 // @version  1.0.0
 // ==/UserScript==
 
-;(() => {
-  "use strict"
-
-  // extracted by mini-css-extract-plugin
-  /* harmony default export */ const styles_module = { tltle: "styles-module__tltle--zOaB" }
-
-  console.log(styles_module.title)
-})()
+(() => {
+  "use strict";
+  const styles_module = { tltle: "styles-module__tltle--zOaB" };
+  console.log(styles_module.title);
+})();
 
 GM_addStyle(`
 body {

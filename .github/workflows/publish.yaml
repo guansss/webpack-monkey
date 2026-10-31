@@ -4,23 +4,31 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     uses: ./.github/workflows/test.yaml
 
-  build:
-    needs: [test]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      # Setup .npmrc file to publish to npm
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          registry-url: "https://registry.npmjs.org"
+  browser:
+    uses: ./.github/workflows/browser-test.yaml
 
-      - run: npm ci
+  lint:
+    uses: ./.github/workflows/lint.yaml
+
+  publish:
+    needs: [test, browser, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup-node
+        with:
+          registry-url: "https://registry.npmjs.org"
       - run: npm run build
-      - run: npm publish ./dist
+      - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

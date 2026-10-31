@@ -71,6 +71,8 @@ export default (env: Record<string, string | boolean>, { mode }: { mode: string 
           use: {
             loader: "ts-loader",
             options: {
+              // https://github.com/TypeStrong/ts-loader/issues/1671
+              compiler: "@typescript/typescript6",
               transpileOnly: true,
             },
           },

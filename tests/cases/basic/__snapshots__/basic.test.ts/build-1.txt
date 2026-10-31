@@ -7,6 +7,6 @@
 // @inject-into  content
 // ==/UserScript==
 
-;(() => {
-  GM_log("Hello, world!")
-})()
+(() => {
+  GM_log("Hello, world!");
+})();

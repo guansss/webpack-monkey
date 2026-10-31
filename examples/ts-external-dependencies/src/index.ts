@@ -1,3 +1,4 @@
+// @ts-ignore — URL imports are resolved at runtime by the userscript manager
 import "https://cdn.jsdelivr.net/npm/axios@1.1.2"
 import { merge } from "jquery"
 import "mitt"

@@ -1,6 +1,6 @@
+import { test } from "node:test"
 import path from "path"
 import { monkey } from "../../../src"
-import { test } from "../../env"
 import { testBuild, withCommonConfig, withMiniCssExtract } from "../../utils/webpack"
 
 const config = withCommonConfig(withMiniCssExtract(), {
@@ -10,4 +10,8 @@ const config = withCommonConfig(withMiniCssExtract(), {
   },
 })
 
-test("build", () => testBuild(monkey(config)))
+/**
+ * CSS build test: global styles inlined via GM_addStyle, CSS modules with hashed class names.
+ * Uses mini-css-extract-plugin to verify the plugin's CSS handling pipeline.
+ */
+test("build", () => testBuild(monkey(config), path.resolve(__dirname, "__snapshots__/css.test.ts")))

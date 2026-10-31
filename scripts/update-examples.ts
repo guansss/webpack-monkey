@@ -3,7 +3,6 @@ import * as glob from "glob"
 import path from "path"
 import { rimraf } from "rimraf"
 import { copyFiles, rewriteFile } from "./utils"
-import axios from "axios"
 
 const type = (process.argv[2] || "--local").slice(2) as "local" | "remote"
 
@@ -27,12 +26,17 @@ async function updateWithLocalBuild() {
   // clear node_modules/webpack-monkey
   await rimraf(monkeyDep + "/**/*", { glob: { windowsPathsNoEscape: true } })
 
-  // copy dist to node_modules/webpack-monkey
+  // copy root package.json into node_modules/webpack-monkey
+  copyFiles([
+    { from: path.resolve(root, "package.json"), to: path.resolve(monkeyDep, "package.json") },
+  ])
+
+  // copy dist/ into node_modules/webpack-monkey/dist/
   copyFiles(
     glob.sync(dist + "/**/*", { nodir: true, windowsPathsNoEscape: true }).map((file) => {
       return {
         from: file,
-        to: path.resolve(monkeyDep, path.relative(dist, file)),
+        to: path.resolve(monkeyDep, "dist", path.relative(dist, file)),
       }
     }),
   )
@@ -41,7 +45,9 @@ async function updateWithLocalBuild() {
 }
 
 async function updateWithRemote() {
-  const packageInfo = (await axios.get("https://registry.npmjs.org/webpack-monkey")).data
+  const packageInfo = (await fetch("https://registry.npmjs.org/webpack-monkey").then((r) =>
+    r.json(),
+  )) as any
   const latestVersion = packageInfo["dist-tags"].latest
 
   glob

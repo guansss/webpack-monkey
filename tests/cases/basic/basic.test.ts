@@ -1,11 +1,10 @@
-import { expect } from "@playwright/test"
+import { test } from "node:test"
+import assert from "node:assert/strict"
 import path from "path"
 import { merge } from "webpack-merge"
 import { monkey } from "../../../src"
 import { MonkeyPlugin } from "../../../src/node/MonkeyPlugin"
-import { test } from "../../env"
-import { getFreePort, testBuild, withCommonConfig } from "../../utils/webpack"
-import axios from "axios"
+import { getFreePort, testBuild, useDevServer, withCommonConfig } from "../../utils/webpack"
 
 const config = withCommonConfig({
   entry: path.resolve(__dirname, "index.js"),
@@ -14,15 +13,36 @@ const config = withCommonConfig({
   },
 })
 
-test("build", () => testBuild(monkey(config)))
+/**
+ * Basic build test: minimal userscript with GM_log grant.
+ */
+test("build", () =>
+  testBuild(monkey(config), path.resolve(__dirname, "__snapshots__/basic.test.ts")))
 
-test("detects dev server's port when not defined", async ({ devServer }) => {
+test("preserves comments when enabled", () =>
+  testBuild(
+    monkey({
+      ...config,
+      monkey: {
+        terserPluginOptions: {
+          terserOptions: {
+            format: {
+              comments: true,
+            },
+          },
+        },
+      },
+    }),
+    path.resolve(__dirname, "__snapshots__/comments.test.ts"),
+  ))
+
+test("detects dev server's port when not defined", async () => {
   const newConfig = monkey(config)
   const plugin = newConfig.plugins!.find(
     (plugin): plugin is MonkeyPlugin => plugin instanceof MonkeyPlugin,
   )!
 
-  expect(plugin.serveMode).toBe(false)
+  assert.equal(plugin.serveMode, false)
 
   const port = await getFreePort()
 
@@ -32,11 +52,9 @@ test("detects dev server's port when not defined", async ({ devServer }) => {
     },
   })
 
-  const server = await devServer({
-    ...newConfigWithPort,
-    noCompile: true,
+  await useDevServer({ ...newConfigWithPort, noCompile: true }, async ({ origin }) => {
+    assert.equal(plugin.serveMode, true)
+    assert.equal(plugin.serverInfo!.port, port)
+    assert.ok(origin.includes(`:${port}`), `dev server origin should contain port ${port}`)
   })
-
-  expect(plugin.serveMode).toBe(true)
-  expect(plugin.serverInfo!.port).toBe(port)
 })

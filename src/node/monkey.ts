@@ -72,7 +72,7 @@ export function monkey({
         },
 
         setupMiddlewares: (middlewares, server) => {
-          plugin["setupServeMode"](server)
+          plugin.setupServeMode(server)
 
           return config.devServer?.setupMiddlewares?.(middlewares, server) ?? middlewares
         },
@@ -80,7 +80,7 @@ export function monkey({
 
       optimization: {
         runtimeChunk: {
-          name: () => plugin.getRuntimeName(),
+          name: () => plugin.getRuntimeName()!,
         },
         minimizer: [new MonkeyMinimizer(options)],
 

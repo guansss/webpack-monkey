@@ -1,0 +1,7 @@
+// ==UserScript==
+// @name     Style-loader test
+// @grant    GM_addStyle
+// @grant    GM_log
+// @match    *://*/*
+// @version  1.0.0
+// ==/UserScript==

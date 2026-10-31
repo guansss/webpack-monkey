@@ -1,0 +1,13 @@
+// ==UserScript==
+// @name         Hello world
+// @grant        GM_log
+// @match        *://*/*
+// @version      1.0.0
+// @run-at       document-end
+// @inject-into  content
+// ==/UserScript==
+
+(() => {
+  // Preserved when terserPluginOptions.terserOptions.format.comments is enabled.
+  GM_log("Hello, world!");
+})();

@@ -75,8 +75,8 @@ export const META_FIELDS_STRING = [
   "supportURL",
   "unwrap",
   // Only valid for Violent Monkey @see {@link https://violentmonkey.github.io/api/metadata-block/#inject-into}
-  "inject-into", 
-  "injectInto"
+  "inject-into",
+  "injectInto",
 ] as const
 
 export const META_FIELDS = [

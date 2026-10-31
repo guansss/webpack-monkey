@@ -3,27 +3,25 @@
   "version": "0.2.1",
   "description": "Webpack plugin for developing userscripts with a modern workflow.",
   "scripts": {
-    "setup": "ts-node scripts/setup.ts",
     "playground": "webpack serve --config=playground/webpack.config.ts",
     "playground:build": "webpack --config=playground/webpack.config.ts",
     "clean": "rimraf -g ./dist/*",
-    "build": "npm run clean && tsc -p tsconfig.build.json && ts-node scripts/postbuild.ts && npm run check-deps",
-    "check-deps": "ts-node scripts/check-deps.ts",
-    "prepublishOnly": "ts-node ../scripts/check-deps.ts",
-    "lint:fix": "prettier --write .",
-    "examples": "ts-node scripts/update-examples.ts",
-    "examples:remote": "ts-node scripts/update-examples.ts --remote",
-    "test": "npm run test:tm && npm run test:vm",
-    "test:u": "cross-env EXT=tampermonkey playwright test --update-snapshots",
-    "test:tm": "cross-env EXT=tampermonkey playwright test",
-    "test:vm": "cross-env EXT=violentmonkey playwright test",
-    "test:tm:d": "npm run test:tm -- --debug --headed",
-    "test:tm:ui": "npm run test:tm -- --ui --headed"
+    "build": "npm run clean && tsc -p tsconfig.build.json && tsx scripts/postbuild.ts",
+    "lint": "prettier --check .",
+    "fmt": "prettier --write .",
+    "examples": "tsx scripts/update-examples.ts",
+    "examples:remote": "tsx scripts/update-examples.ts --remote",
+    "test": "node --require tsx/cjs --test $(find tests -name '*.test.ts')",
+    "test:u": "UPDATE_SNAPSHOTS=1 node --require tsx/cjs --test $(find tests -name '*.test.ts')",
+    "test:coverage": "node --require tsx/cjs --experimental-test-coverage --test $(find tests -name '*.test.ts')",
+    "test:browser:setup": "tsx tests/browser/setup.ts && playwright install chromium",
+    "test:browser": "npm run test:browser:setup && playwright test",
+    "prepare": "test -n \"$CI\" || npm run build"
   },
-  "main": "lib/index.js",
-  "types": "lib/index.d.ts",
+  "main": "dist/lib/index.js",
+  "types": "dist/lib/index.d.ts",
   "files": [
-    "lib",
+    "dist",
     "README.md"
   ],
   "repository": {
@@ -34,48 +32,46 @@
   "license": "MIT",
   "homepage": "https://github.com/guansss/webpack-monkey#readme",
   "peerDependencies": {
-    "colorette": "^2.0.0",
-    "terser-webpack-plugin": "^5.0.0",
+    "colorette": "^2.0.20",
+    "prettier": "^3.0.0",
     "webpack": "^5.0.0",
-    "webpack-dev-server": "^4.0.0"
+    "webpack-dev-server": "^5.0.0"
   },
   "peerDependenciesMeta": {
     "colorette": {
       "optional": true
     },
-    "terser-webpack-plugin": {
+    "prettier": {
       "optional": true
     }
   },
   "dependencies": {
-    "browser-extension-url-match": "^0.3.3",
+    "browser-extension-url-match": "^1.0.0",
     "lodash": "^4.17.21",
     "mitt": "^3.0.1",
-    "webpack-merge": "^5.9.0"
+    "terser-webpack-plugin": "^5.6.0",
+    "webpack-merge": "^6.0.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.39.0",
-    "@types/lodash": "^4.14.197",
-    "axios": "^1.4.0",
-    "cross-env": "^7.0.3",
-    "css-loader": "^6.7.3",
-    "dependency-check": "^5.0.0-7",
-    "dotenv": "^16.0.3",
-    "glob": "^10.2.4",
-    "jszip": "^3.10.1",
-    "mini-css-extract-plugin": "^2.7.5",
-    "postcss-loader": "^7.3.0",
-    "postcss-preset-env": "^8.3.2",
-    "prettier": "^3.0.3",
-    "rimraf": "^5.0.0",
-    "style-loader": "^3.3.2",
-    "ts-loader": "^9.4.2",
-    "ts-node": "^10.9.1",
-    "type-fest": "^3.11.1",
-    "typescript": "^5.0.4",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.1",
-    "webpack-dev-server": "^4.15.1"
+    "@playwright/test": "^1.63.0",
+    "@types/lodash": "^4.17.0",
+    "@typescript/typescript6": "^6.0.2",
+    "css-loader": "^7.1.0",
+    "glob": "^13.0.0",
+    "jszip": "^3.10.2",
+    "mini-css-extract-plugin": "^2.10.0",
+    "postcss-loader": "^8.2.0",
+    "postcss-preset-env": "^11.3.0",
+    "prettier": "^3.9.0",
+    "rimraf": "^6.1.0",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.6.0",
+    "tsx": "^4.23.0",
+    "type-fest": "^5.8.0",
+    "typescript": "^7.0.0",
+    "webpack": "^5.109.0",
+    "webpack-cli": "^7.2.0",
+    "webpack-dev-server": "^5.2.0"
   },
   "workspaces": [
     "examples/*"

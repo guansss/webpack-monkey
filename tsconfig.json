@@ -16,13 +16,11 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "removeComments": false,
+    "rootDir": ".",
     "lib": ["esnext", "dom"],
     "outDir": "dist/lib",
     "declarationDir": "dist/lib"
   },
   "include": ["**/*.ts", "**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "examples", "tests/extensions/*/"],
-  "ts-node": {
-    "transpileOnly": true
-  }
+  "exclude": ["node_modules", "dist", "examples", "tests/extensions/*/"]
 }

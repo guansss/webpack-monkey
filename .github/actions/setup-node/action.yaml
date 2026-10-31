@@ -1,0 +1,20 @@
+name: Setup Node
+description: Setup Node.js from .nvmrc and install dependencies
+
+inputs:
+  registry-url:
+    description: "Optional registry URL for npm auth"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      with:
+        node-version-file: ".nvmrc"
+        registry-url: ${{ inputs.registry-url }}
+        cache: "npm"
+    - name: Install dependencies
+      shell: bash
+      run: npm ci

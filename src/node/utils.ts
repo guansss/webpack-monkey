@@ -1,9 +1,9 @@
 // @ts-ignore
 // prettier-ignore
-import { getDescriptionFile, getRequiredVersionFromDescriptionFile } from "webpack/lib/sharing/utils";
+import { getDescriptionFile, getRequiredVersionFromDescriptionFile } from "webpack/lib/sharing/utils"
 
 import { isArray, isBoolean, isNil, isObject, isString, trimEnd } from "lodash"
-import { Compilation, sources } from "webpack"
+import { Compilation } from "webpack"
 import { getGMAPIs } from "../shared/GM"
 import { META_FIELD_ALIAS, META_FIELDS, META_FIELDS_I18N, UserscriptMeta } from "../shared/meta"
 import { includes } from "../shared/utils"
@@ -30,33 +30,6 @@ export function getPackageJson(fs: Compilation["inputFileSystem"], context: stri
 
 export function pathSplit(path: string) {
   return path.replace(/\\/g, "/").split("/")
-}
-
-export function traverseAndFindSource(
-  source: unknown,
-  cb: (source: sources.Source) => void | true,
-): sources.Source | undefined {
-  if (!source || !(source instanceof sources.Source)) {
-    return undefined
-  }
-
-  const found = cb(source)
-
-  if (found === true) {
-    return source
-  }
-
-  if ((source as any)._children) {
-    for (const child of (source as any)._children as unknown[]) {
-      const result = traverseAndFindSource(child, cb)
-
-      if (result) {
-        return result
-      }
-    }
-  }
-
-  return traverseAndFindSource((source as any)._source, cb)
 }
 
 export function generateMetaBlock(source: string, meta: UserscriptMeta) {

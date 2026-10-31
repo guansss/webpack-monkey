@@ -1,0 +1,33 @@
+name: Lint
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/**"
+      - "src/**"
+      - "tests/**"
+      - "scripts/**"
+      - "*.ts"
+      - "package.json"
+      - "package-lock.json"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+concurrency:
+  group: ${{ github.workflow }}-lint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: ./.github/actions/setup-node
+      - name: Check formatting
+        run: npm run lint

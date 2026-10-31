@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name     CSS test
 // @grant    GM_addStyle
-// @match    *:/*
+// @match    *://*/*
 // @version  1.0.0
 // ==/UserScript==

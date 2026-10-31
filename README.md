@@ -7,31 +7,48 @@ A webpack plugin for developing your userscripts with a modern workflow.
 
 Focusing on support for [Tampermonkey](https://www.tampermonkey.net/) and [Violentmonkey](https://violentmonkey.github.io/).
 
-- [Features](#features)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-  - [1. Set up the project](#1-set-up-the-project)
-  - [2. Install the dev script](#2-install-the-dev-script)
-  - [3. Start developing](#3-start-developing)
-  - [4. Build for release](#4-build-for-release)
-  - [Advanced: multiple userscripts](#advanced-multiple-userscripts)
-  - [More examples](#more-examples)
-- [API / Configuration](#api--configuration)
-  - [`monkey(config)`](#monkeyconfig)
-  - [`module.hot.monkeyReload(options)`](#modulehotmonkeyreloadoptions)
-- [Meta generation](#meta-generation)
-- [External dependencies (@require)](#external-dependencies-require)
-- [External assets (@resource)](#external-assets-resource)
-- [CSS](#css)
-- [TypeScript](#typescript)
-- [Working with HMR](#working-with-hmr)
-- [Comparison with vite-plugin-monkey](#comparison-with-vite-plugin-monkey)
-- [Development Notes](DEVELOPMENT.md)
+- [webpack-monkey](#webpack-monkey)
+  - [Features](#features)
+  - [Installation](#installation)
+  - [Quick start](#quick-start)
+    - [1. Set up the project](#1-set-up-the-project)
+    - [2. Install the dev script](#2-install-the-dev-script)
+    - [3. Start developing](#3-start-developing)
+    - [4. Build for release](#4-build-for-release)
+    - [Advanced: multiple userscripts](#advanced-multiple-userscripts)
+    - [More examples](#more-examples)
+  - [API / Configuration](#api--configuration)
+    - [`monkey(config)`](#monkeyconfig)
+    - [`module.hot.monkeyReload(options)`](#modulehotmonkeyreloadoptions)
+  - [Meta generation](#meta-generation)
+  - [External dependencies (@require)](#external-dependencies-require)
+    - [1. meta.require (simple)](#1-metarequire-simple)
+    - [2. import with URL (good for tree-shaking)](#2-import-with-url-good-for-tree-shaking)
+    - [3. Webpack externals with URL (good for tree-shaking and TypeScript)](#3-webpack-externals-with-url-good-for-tree-shaking-and-typescript)
+    - [4. Webpack externals with global variable (most flexible)](#4-webpack-externals-with-global-variable-most-flexible)
+  - [External assets (@resource)](#external-assets-resource)
+  - [CSS](#css)
+    - [With mini-css-extract-plugin (recommended)](#with-mini-css-extract-plugin-recommended)
+    - [With style-loader](#with-style-loader)
+    - [CSS Modules](#css-modules)
+  - [TypeScript](#typescript)
+    - [meta.ts](#metats)
+    - [meta.js with JSDoc](#metajs-with-jsdoc)
+    - [Typing external dependencies](#typing-external-dependencies)
+  - [Working with HMR](#working-with-hmr)
+    - [TL;DR](#tldr)
+    - [Why HMR?](#why-hmr)
+    - [webpack's standard method](#webpacks-standard-method)
+    - [webpack-monkey's method](#webpack-monkeys-method)
+  - [Comparison with vite-plugin-monkey](#comparison-with-vite-plugin-monkey)
+    - [Vite vs. webpack](#vite-vs-webpack)
+    - [Plugin differences](#plugin-differences)
+    - [Is webpack-monkey a plagiarism?](#is-webpack-monkey-a-plagiarism)
 
 ## Features
 
 - **HMR (Hot Module Replacement)**: Easily apply changes without page reload.
-- **CSP bypassing**: No worries about CSP restrictions during development.
+- **CSP bypassing**: Works under most CSP restrictions during development.
 - **Meta generation**: Generate userscript meta blocks programmatically.
 - **Multiple userscripts**: Develop multiple userscripts at the same time.
 - **Clean output**: Comply with the userscript hosting sites' no-minification requirement.
@@ -674,7 +691,30 @@ async function main() {
 
 ## CSS
 
-You can import CSS files in your js files (check out [webpack's guide](https://webpack.js.org/guides/asset-management/#loading-css)), and webpack-monkey will bundle them into the userscript:
+You can import CSS files in your js files (check out [webpack's guide](https://webpack.js.org/guides/asset-management/#loading-css)), and webpack-monkey will bundle them into the userscript.
+
+### With mini-css-extract-plugin (recommended)
+
+This approach extracts CSS into a clean `GM_addStyle()` call at the end of the userscript — no runtime overhead:
+
+**webpack.config.js**
+
+```js
+const MiniCssExtractPlugin = require("mini-css-extract-plugin")
+
+module.exports = monkey({
+  // ...
+  plugins: [new MiniCssExtractPlugin()],
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: [MiniCssExtractPlugin.loader, "css-loader"],
+      },
+    ],
+  },
+})
+```
 
 **index.js**
 
@@ -716,7 +756,48 @@ body {
 
 The CSS content will be wrapped in a `GM_addStyle()` at the end of the userscript, so if you or your users are inspecting the code, you can see the JavaScript code from the beginning, without having to scroll over a massive CSS block.
 
-Bonus: when writing styles for your custom DOM elements, a good practice is to use [CSS Modules](https://github.com/css-modules/css-modules), which ensures that your class names will not conflict with other userscripts or the page itself. Check out [webpack's guide](https://webpack.js.org/loaders/css-loader/#modules).
+### With style-loader
+
+You can also use `style-loader`, which injects styles via JavaScript at runtime:
+
+```js
+module.exports = monkey({
+  // ...
+  module: {
+    rules: [
+      {
+        test: /\.css$/i,
+        use: ["style-loader", "css-loader"],
+      },
+    ],
+  },
+})
+```
+
+This works in both development and production. The plugin automatically patches style-loader to use `GM_addStyle` under the hood, so styles are injected correctly in the userscript sandbox.
+
+> [!NOTE]
+> `mini-css-extract-plugin` produces cleaner output (just a `GM_addStyle` call), while `style-loader` bundles the entire style-loader runtime into your userscript. Prefer `mini-css-extract-plugin` unless you have a specific reason to use `style-loader`.
+
+### CSS Modules
+
+When writing styles for your custom DOM elements, a good practice is to use [CSS Modules](https://github.com/css-modules/css-modules), which ensures that your class names will not conflict with other userscripts or the page itself. Check out [webpack's guide](https://webpack.js.org/loaders/css-loader/#modules).
+
+> [!IMPORTANT]
+> If you're using `css-loader` v7+, set `modules.namedExport: false` in your css-loader options. Without this, webpack cannot properly inline the CSS module exports, resulting in bloated output with `__webpack_require__` runtime code left in your userscript.
+
+```js
+{
+  loader: "css-loader",
+  options: {
+    modules: {
+      auto: true,
+      namedExport: false,
+      localIdentName: "[name]__[local]--[hash:base64:4]",
+    },
+  },
+}
+```
 
 ## TypeScript
 
@@ -760,7 +841,6 @@ However, since this TypeScript file will be loaded with `require()`, you'll need
    ```
 
 3. Do either of the following:
-
    - Rename `webpack.config.js` to `webpack.config.ts` (maybe need some rewriting), then webpack will do the rest for you.
    - Install `cross-env`. Then in your `package.json`, prepend a [node flag](https://typestrong.org/ts-node/docs/usage/#node-flags-and-other-tools) to the webpack commands:
 
@@ -1048,7 +1128,7 @@ Vite is a next-generation build tool and is faster than webpack. However, Vite h
 
 There is a workaround though - you can disable CSP with a browser extension. But it's a risky move because CSP is a security feature and is there for a reason, also you may forget to re-enable it after development. More importantly, if you are maintaining an open-source userscript, your contributors will be required to disable CSP as well, which is not a good experience.
 
-Webpack, on the other hand, emits CommonJS modules in development mode, which are capable to be evaluated in userscript scope and will never be affected by CSP.
+Webpack, on the other hand, emits CommonJS modules in development mode. These are fetched with `GM_xmlhttpRequest` in the userscript scope, so they bypass the `script-src`/`connect-src` restrictions that block Vite's `<script src>`, and bundled CSS is injected with `GM_addStyle` to bypass `style-src`.
 
 ### Plugin differences
 

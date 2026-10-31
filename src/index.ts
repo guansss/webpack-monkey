@@ -1,4 +1,4 @@
-/// <reference path="./env.d.ts" />
+/// <reference path="./env.d.ts" preserve="true" />
 
 export type { Meta, UserscriptMeta } from "./shared/meta"
 

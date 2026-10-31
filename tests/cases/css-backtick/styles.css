@@ -1,0 +1,9 @@
+/* Backticks in comments like `font-family` */
+body {
+  font-family: monospace;
+}
+
+/* Also test ${expressions} */
+.test {
+  content: "${not-a-variable}";
+}

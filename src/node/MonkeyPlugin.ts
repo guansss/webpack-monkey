@@ -19,6 +19,7 @@ import {
   Compilation,
   Compiler,
   Configuration,
+  DefinePlugin,
   EntryPlugin,
   ExternalItemFunctionData,
   ExternalItemValue,
@@ -76,7 +77,7 @@ type MetaLoader = (
   arg: { file: string },
   context: OptionFunctionContext,
 ) => MaybePromise<UserscriptMeta>
-type metaTransformer = (
+type MetaTransformer = (
   arg: { meta: UserscriptMeta },
   context: OptionFunctionContext,
 ) => MaybePromise<UserscriptMeta>
@@ -94,7 +95,7 @@ export interface MonkeyPluginOptions {
   meta?: {
     resolve?: string | string[] | MetaResolver
     load?: MetaLoader
-    transform?: metaTransformer
+    transform?: MetaTransformer
     generateFile?: boolean
   }
   devScript?: {
@@ -225,7 +226,7 @@ export class MonkeyPlugin {
   requireResolver: RequireResolver
   metaResolver: MetaResolver
   metaLoader: MetaLoader
-  metaTransformer?: metaTransformer
+  metaTransformer?: MetaTransformer
 
   userscripts: Omit<UserscriptInfo, "url">[] = []
   userscriptsLoaded = Promise.resolve()
@@ -248,7 +249,8 @@ export class MonkeyPlugin {
     this.metaTransformer = options.meta?.transform
   }
 
-  private setupServeMode(server: WebpackDevServer) {
+  /** @internal Invoked by the config's `devServer.setupMiddlewares` hook. */
+  setupServeMode(server: WebpackDevServer) {
     const compiler = this.compiler
 
     if (!compiler) {
@@ -293,6 +295,11 @@ export class MonkeyPlugin {
     this.compiler = compiler
     this.infraLogger = compiler.getInfrastructureLogger(MonkeyPlugin.name)
 
+    // Only in production: development/HMR builds must keep `module.hot` live.
+    if (compiler.options.mode === "production") {
+      new DefinePlugin({ "module.hot": "undefined" }).apply(compiler)
+    }
+
     compiler.resolverFactory.hooks.resolver.for("normal").tap(MonkeyPlugin.name, (resolver) => {
       resolver.hooks.result.tap(MonkeyPlugin.name, (result, ctx) => {
         // redirect to the patching scripts in order to bypass CSP when hot reloading CSS
@@ -334,87 +341,86 @@ export class MonkeyPlugin {
           return undefined
         })
 
-        const findOneOrNoneJsFile = (chunk: Chunk) => {
-          const jsFiles = Array.from(chunk.files).filter((file) => file.endsWith(".js"))
+        const loadUserscriptForEntry = async (name: string, entryFile: string) => {
+          const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
 
-          if (!this.serveMode && jsFiles.length > 1) {
-            throw new Error(`multiple js files in chunk ${chunk.name}:\n- ${jsFiles.join("\n- ")}`)
+          if (!metaFile) {
+            return
           }
 
-          return jsFiles[0]
+          let meta = await this.metaLoader({ file: metaFile }, this)
+
+          if (this.metaTransformer) {
+            meta = await this.metaTransformer({ meta }, this)
+          }
+
+          const userscript: Omit<UserscriptInfo, "url"> = {
+            name,
+            entry: entryFile,
+            dir: path.dirname(entryFile),
+            meta,
+            requires: castTruthyArray(meta.require),
+            assets: [],
+          }
+
+          const existing = this.userscripts.find((u) => u.name === name)
+
+          if (existing) {
+            Object.assign(existing, userscript)
+          } else {
+            this.userscripts.push(userscript)
+          }
         }
 
-        compilation.hooks.succeedEntry.tap(
-          this.constructor.name,
-          (dependency, { name, filename }) => {
+        compilation.hooks.finishModules.tapPromise(this.constructor.name, async () => {
+          const loadPromises: Promise<void>[] = []
+
+          for (const [name, entryData] of compilation.entries as Iterable<
+            [string, { dependencies?: EntryDependency[]; options?: { filename?: string } }]
+          >) {
             if (!name) {
               // do not process global entries
-              return
+              continue
             }
 
-            const entryFile = (dependency as EntryDependency)?.request
+            // the injected client entry is not a userscript
+            if (name === "monkey-client" || entryData.options?.filename === CLIENT_SCRIPT) {
+              continue
+            }
+
+            const entryFile = entryData.dependencies?.[0]?.request
 
             if (!entryFile) {
-              return
+              continue
             }
 
-            if (filename === CLIENT_SCRIPT) {
-              return
-            }
+            loadPromises.push(loadUserscriptForEntry(name, entryFile))
+          }
 
-            const loadUserscriptPromise = (async () => {
-              const metaFile = await this.metaResolver({ entryName: name, entry: entryFile }, this)
-
-              if (!metaFile) {
-                return
-              }
-
-              let meta = await this.metaLoader({ file: metaFile }, this)
-
-              if (this.metaTransformer) {
-                meta = await this.metaTransformer({ meta }, this)
-              }
-
-              const userscript: Omit<UserscriptInfo, "url"> = {
-                name,
-                entry: entryFile,
-                dir: path.dirname(entryFile),
-                meta,
-                requires: castTruthyArray(meta.require),
-                assets: [],
-              }
-
-              const existing = this.userscripts.find((u) => u.name === name)
-
-              if (existing) {
-                Object.assign(existing, userscript)
-              } else {
-                this.userscripts.push(userscript)
-              }
-            })()
-
-            this.userscriptsLoaded = this.userscriptsLoaded.then(() => loadUserscriptPromise)
-          },
-        )
+          const loadAll = Promise.all(loadPromises).then(() => undefined)
+          this.userscriptsLoaded = this.userscriptsLoaded.then(() => loadAll)
+          await loadAll
+        })
 
         // detect named/default imports of unnamed external modules and warn the user,
         // detect used exports from unnamed external modules and then warn the user,
         // or throw an error when building for production
         if (!this.options.require?.exportsFromUnnamed) {
-          compilation.hooks.afterChunks.tap(this.constructor.name, (chunks) => {
+          compilation.hooks.optimizeChunkModules.tap(this.constructor.name, (chunks) => {
             const externalModules = [...compilation.modules].filter(
               (m): m is ExternalModule => m instanceof ExternalModule,
             )
 
+            const runtimes = uniq([...chunks].map((c) => c.runtime))
+
             for (const module of externalModules) {
               const exportsInfo = compilation.moduleGraph.getExportsInfo(module)
-              const runtimes = uniq([...chunks].map((c) => c.runtime))
 
               if (
                 !runtimes.some(
                   // check if the module is imported with named import or default import
                   // e.g. `import { foo } from "bar"` or `import foo from "bar"`
-                  (runtime) => exportsInfo.isModuleUsed(runtime) && exportsInfo.isUsed(runtime),
+                  (r) => exportsInfo.isModuleUsed(r) && exportsInfo.isUsed(r),
                 )
               ) {
                 continue
@@ -463,7 +469,7 @@ export class MonkeyPlugin {
                     const runtimeChunk = find(entrypoint.chunks, { name: "runtime" })
 
                     if (runtimeChunk) {
-                      runtimeScript = findOneOrNoneJsFile(runtimeChunk)
+                      runtimeScript = this.findOneOrNoneJsFile(runtimeChunk)
                     }
                   }
 
@@ -480,7 +486,7 @@ export class MonkeyPlugin {
                     return
                   }
 
-                  const file = findOneOrNoneJsFile(chunk)
+                  const file = this.findOneOrNoneJsFile(chunk)
 
                   if (!(file && assets[file])) {
                     this.logger.warn("file not found for userscript:", name)
@@ -559,7 +565,7 @@ export class MonkeyPlugin {
                   await Promise.all(
                     // there's most likely only one chunk per entrypoint
                     chunks.map(async (chunk) => {
-                      const jsFile = findOneOrNoneJsFile(chunk)
+                      const jsFile = this.findOneOrNoneJsFile(chunk)
 
                       if (!jsFile) {
                         return
@@ -596,7 +602,12 @@ export class MonkeyPlugin {
                         }
 
                         if (concatenatedCss) {
-                          jsContent += "\nGM_addStyle(`\n" + concatenatedCss + "`)\n"
+                          // Escape backticks and ${ to prevent breaking the template literal
+                          const escapedCss = concatenatedCss
+                            .replace(/\\/g, "\\\\")
+                            .replace(/`/g, "\\`")
+                            .replace(/\$\{/g, "\\${")
+                          jsContent += "\nGM_addStyle(`\n" + escapedCss + "`)\n"
                         }
                       }
 
@@ -651,8 +662,10 @@ export class MonkeyPlugin {
       name: `[Dev] ${projectPackageJson?.name || "untitled project"}`,
       match: "*://*/*",
       version: DEV_SCRIPT_VERSION,
-      // put everything in these fields because we don't know what the userscripts will do
-      connect: "*",
+      // Tampermonkey's `@connect *` does not cover localhosts, so the dev server's
+      // own host is listed explicitly to let the client fetch bundles while developing locally.
+      // https://github.com/Tampermonkey/tampermonkey/issues/1421
+      connect: ["*", ...new Set([this.serverInfo.host, "localhost", "127.0.0.1"])],
       grant: getGMAPIs(),
     }
 
@@ -715,10 +728,12 @@ export class MonkeyPlugin {
             try {
               const entryPath = require.resolve(userRequest)
               const segments = pathSplit(entryPath)
-              const packageJsonPath = path.join(
-                ...segments.slice(0, segments.indexOf("node_modules") + 2),
-                "package.json",
-              )
+              const packageJsonPath =
+                path.sep +
+                path.join(
+                  ...segments.slice(0, segments.indexOf("node_modules") + 2),
+                  "package.json",
+                )
               packageVersion = require(packageJsonPath).version
             } catch (e) {
               this.logger.warn(`could not find installed package "${userRequest}":`, e)
@@ -744,6 +759,16 @@ export class MonkeyPlugin {
     return requires
   }
 
+  private findOneOrNoneJsFile(chunk: Chunk) {
+    const jsFiles = Array.from(chunk.files).filter((file) => file.endsWith(".js"))
+
+    if (!this.serveMode && jsFiles.length > 1) {
+      throw new Error(`multiple js files in chunk ${chunk.name}:\n- ${jsFiles.join("\n- ")}`)
+    }
+
+    return jsFiles[0]
+  }
+
   getRuntimeName() {
     // this is equivalent to:
     // `optimization.runtimeChunk = "single"` in serve mode
@@ -755,8 +780,7 @@ export class MonkeyPlugin {
     data: ExternalItemFunctionData,
     callback: Parameters<ExtractFunction<Configuration["externals"]>>[1] & {},
     userDefinedExternals?:
-      | Record<string, ExternalItemValue>
-      | ExtractFunction<Configuration["externals"]>,
+      Record<string, ExternalItemValue> | ExtractFunction<Configuration["externals"]>,
   ): void {
     const { request } = data
 
@@ -833,7 +857,7 @@ export class MonkeyPlugin {
       return resolveAndConvert(value)
     }
     if (isArray(value)) {
-      return [resolveAndConvert(value[0]), ...value.slice(1)]
+      return [resolveAndConvert(value[0]!), ...value.slice(1)]
     }
     return value
   }

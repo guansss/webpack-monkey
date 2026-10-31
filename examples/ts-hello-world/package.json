@@ -7,12 +7,12 @@
     "build": "webpack --mode production"
   },
   "dependencies": {
-    "ts-loader": "^9.4.4",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.2.2",
-    "webpack": "^5.82.0",
-    "webpack-cli": "^5.1.0",
-    "webpack-dev-server": "^4.15.0",
+    "ts-loader": "^9.5.7",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3",
+    "webpack": "^5.101.0",
+    "webpack-cli": "^7.0.2",
+    "webpack-dev-server": "^5.2.4",
     "webpack-monkey": "^0.2.1"
   }
 }

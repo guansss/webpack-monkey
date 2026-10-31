@@ -1,11 +1,17 @@
 export function parseHeaders(headers: string): Record<string, string> {
-  return headers
-    .split("\n")
+  // Tampermonkey separates the headers with CRLF, which would end up in the header names
+  return (headers || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.split(": "))
     .reduce(
-      (headers, [name, value]) => {
-        headers[name!] = value!
+      (headers, line) => {
+        const separator = line.indexOf(":")
+
+        if (separator > 0) {
+          headers[line.slice(0, separator).trim()] = line.slice(separator + 1).trim()
+        }
+
         return headers
       },
       {} as Record<string, string>,

@@ -7,6 +7,6 @@
 // @require  https://ex-url-global2
 // @require  https://ex-url-global3
 // @require  https://unpkg.com/ex
-// @match    *:/*
+// @match    *://*/*
 // @version  1.0.0
 // ==/UserScript==
